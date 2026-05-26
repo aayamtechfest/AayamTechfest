@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://github.com/mdwarishansari/Aayam">
-    <img src="https://github.com/mdwarishansari/Aayam/raw/main/public/LogoGIF.gif" alt="AAYAM Logo" width="128" height="128" style="border-radius: 50.5rem; border: 1px solid rgba(255,255,255,0.15);" />
+  <a href="https://github.com/aayamtechfest/aayam-techfest-platform">
+    <img src="https://github.com/aayamtechfest/aayam-techfest-platform/raw/main/public/LogoGIF.gif" alt="AAYAM Logo" width="128" height="128" style="border-radius: 50.5rem; border: 1px solid rgba(255,255,255,0.15);" />
   </a>
 </p>
 
@@ -9,14 +9,14 @@
 <p align="center">
   <strong>The Premier University Event &amp; Hackathon Management Platform</strong>
   <br />
-  <a href="https://aayam-warish.vercel.app/"><strong>Live Site 🚀</strong></a>
+  <a href="https://aayam-techfest.vercel.app/"><strong>Live Site 🚀</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/mdwarishansari/Aayam">
-    <img src="https://img.shields.io/github/stars/mdwarishansari/Aayam?style=for-the-badge&logo=github&color=4F46E5" alt="GitHub Stars" />
+  <a href="https://github.com/aayamtechfest/aayam-techfest-platform">
+    <img src="https://img.shields.io/github/stars/aayamtechfest/aayam-techfest-platform?style=for-the-badge&logo=github&color=4F46E5" alt="GitHub Stars" />
   </a>
-  <a href="https://aayam-warish.vercel.app/">
+  <a href="[https://aayam-techfest.vercel.app/](https://aayam-techfest.vercel.app/)">
     <img src="https://img.shields.io/badge/Live%20Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
   </a>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=nextdotjs&color=000" alt="Next.js 16" />
