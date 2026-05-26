@@ -17,39 +17,58 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 import { LoadingScreen } from "@/components/shared/loading-screen";
+import { getSettings } from "@/actions/settings.actions";
 
-export const metadata: Metadata = {
-  title: "AAYAM - University Event & Hackathon Platform",
-  description:
-    "AAYAM is the ultimate university event and hackathon management platform. Discover events, register your team, and compete to innovate.",
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const settings = await getSettings();
+    const title = settings?.eventTitle || "AAYAM - University Event & Hackathon Platform";
+    const siteName = settings?.siteName || "AAYAM";
+    const description = settings?.tagline || "AAYAM is the ultimate university event and hackathon management platform.";
+    const favicon = settings?.faviconUrl || "/Logo.png";
 
-  verification: {
-    google: "-tLV5LGzklIMBfcWQzZMSEMgq4uT35lAkcimmIBuXtw",
-  },
-
-  keywords: [
-    "AAYAM",
-    "hackathon",
-    "university events",
-    "tech fest",
-    "coding competition",
-  ],
-
-  openGraph: {
-    title: "AAYAM - University Event & Hackathon Platform",
-    description:
-      "AAYAM is the ultimate university event and hackathon management platform. Discover events, register your team, and compete to innovate.",
-    url: "/",
-    siteName: "AAYAM",
-    type: "website",
-  },
-
-  icons: {
-    icon: "/Logo.png",
-    shortcut: "/Logo.png",
-    apple: "/Logo.png",
-  },
-};
+    return {
+      title,
+      description,
+      verification: {
+        google: "-tLV5LGzklIMBfcWQzZMSEMgq4uT35lAkcimmIBuXtw",
+      },
+      keywords: [
+        "AAYAM",
+        "hackathon",
+        "university events",
+        "tech fest",
+        "coding competition",
+      ],
+      openGraph: {
+        title,
+        description,
+        url: "/",
+        siteName,
+        type: "website",
+      },
+      icons: {
+        icon: favicon,
+        shortcut: favicon,
+        apple: favicon,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to generate metadata dynamically:", error);
+    return {
+      title: "AAYAM - University Event & Hackathon Platform",
+      description: "AAYAM is the ultimate university event and hackathon management platform.",
+      verification: {
+        google: "-tLV5LGzklIMBfcWQzZMSEMgq4uT35lAkcimmIBuXtw",
+      },
+      icons: {
+        icon: "/Logo.png",
+        shortcut: "/Logo.png",
+        apple: "/Logo.png",
+      },
+    };
+  }
+}
 export default function RootLayout({
   children,
 }: Readonly<{

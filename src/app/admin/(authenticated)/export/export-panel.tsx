@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileSpreadsheet, Sparkles, Filter } from "lucide-react";
+import { Download, FileSpreadsheet, Sparkles, Filter, Layers } from "lucide-react";
 
 interface EventItem {
   id: string;
@@ -13,14 +13,18 @@ interface ExportPanelProps {
 }
 
 export function ExportPanel({ events }: ExportPanelProps) {
+  const [exportType, setExportType] = useState("registrations");
   const [eventId, setEventId] = useState("ALL");
   const [paymentStatus, setPaymentStatus] = useState("ALL");
 
   // Dynamically build export URL
   const getDownloadUrl = () => {
     const params = new URLSearchParams();
+    params.set("type", exportType);
     if (eventId && eventId !== "ALL") params.set("eventId", eventId);
-    if (paymentStatus && paymentStatus !== "ALL") params.set("paymentStatus", paymentStatus);
+    if (exportType === "registrations" && paymentStatus && paymentStatus !== "ALL") {
+      params.set("paymentStatus", paymentStatus);
+    }
     return `/api/export?${params.toString()}`;
   };
 
@@ -33,12 +37,27 @@ export function ExportPanel({ events }: ExportPanelProps) {
       <div className="text-center space-y-2">
         <h2 className="font-heading text-xl font-bold text-white">Generate Excel Export</h2>
         <p className="text-sm text-gray-400">
-          Select filters below to download a flattened spreadsheet containing registrations, team details, and payment UTRs.
+          Select filters below to download a flattened spreadsheet containing registrations, team details, or project submissions.
         </p>
       </div>
 
       {/* Selects */}
       <div className="space-y-4 pt-4 border-t border-white/5">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center gap-1">
+            <Layers className="h-3 w-3" />
+            <span>Export Data Type</span>
+          </label>
+          <select
+            value={exportType}
+            onChange={(e) => setExportType(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-sm text-white focus:outline-none"
+          >
+            <option value="registrations">Registrations (Default)</option>
+            <option value="submissions">Project Submissions</option>
+          </select>
+        </div>
+
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center gap-1">
             <Filter className="h-3 w-3" />
@@ -58,29 +77,31 @@ export function ExportPanel({ events }: ExportPanelProps) {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center gap-1">
-            <CreditCardIcon className="h-3 w-3" />
-            <span>Filter by Payment Status</span>
-          </label>
-          <select
-            value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-sm text-white focus:outline-none"
-          >
-            <option value="ALL">All Payment States</option>
-            <option value="PENDING">Pending Verification</option>
-            <option value="APPROVED">Approved / Confirmed</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-        </div>
+        {exportType === "registrations" && (
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 flex items-center gap-1">
+              <CreditCardIcon className="h-3 w-3" />
+              <span>Filter by Payment Status</span>
+            </label>
+            <select
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-sm text-white focus:outline-none"
+            >
+              <option value="ALL">All Payment States</option>
+              <option value="PENDING">Pending Verification</option>
+              <option value="APPROVED">Approved / Confirmed</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Download Action */}
       <div className="pt-4 border-t border-white/5">
         <a
           href={getDownloadUrl()}
-          download="aayam-registrations.xlsx"
+          download={exportType === "registrations" ? "aayam-registrations.xlsx" : "aayam-submissions.xlsx"}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/35"
         >
           <Download className="h-4 w-4" />

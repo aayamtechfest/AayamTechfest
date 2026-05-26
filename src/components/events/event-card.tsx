@@ -13,6 +13,10 @@ interface EventCardProps {
     isRegistrationOpen: boolean;
     venue?: string | null;
     eventDate?: Date | null;
+    bannerUrl?: string | null;
+    winner1Id?: string | null;
+    winner2Id?: string | null;
+    winner3Id?: string | null;
   };
 }
 
@@ -22,6 +26,17 @@ export function EventCard({ event }: EventCardProps) {
   return (
     <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1.5 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 hover:bg-white/10 animate-fade-in">
       <div>
+        {/* Card Banner Image */}
+        {event.bannerUrl && (
+          <div className="h-36 w-full overflow-hidden rounded-xl mb-4 border border-white/5 bg-black/40">
+            <img
+              src={event.bannerUrl}
+              alt={event.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
+        )}
+
         {/* Card Header Badge */}
         <div className="flex items-center justify-between">
           <span
@@ -46,14 +61,21 @@ export function EventCard({ event }: EventCardProps) {
               : "Solo/Team"}
           </span>
 
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider",
-              event.isRegistrationOpen ? "text-emerald-400" : "text-rose-400"
+          <div className="flex items-center gap-2">
+            {(event.winner1Id || event.winner2Id || event.winner3Id) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                🏆 Winners Declared
+              </span>
             )}
-          >
-            {event.isRegistrationOpen ? "Registration Open" : "Registration Closed"}
-          </span>
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider",
+                event.isRegistrationOpen ? "text-emerald-400" : "text-rose-400"
+              )}
+            >
+              {event.isRegistrationOpen ? "Registration Open" : "Registration Closed"}
+            </span>
+          </div>
         </div>
 
         {/* Title */}

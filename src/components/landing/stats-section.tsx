@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Users, Calendar, Trophy, Building2 } from "lucide-react";
+import { Users, Calendar, Trophy, UploadCloud } from "lucide-react";
 
 interface StatItemProps {
   icon: any;
@@ -73,7 +73,7 @@ interface StatsSectionProps {
     events?: number | null;
     registrations?: number | null;
     competitors?: number | null;
-    colleges?: number | null;
+    submissions?: number | null;
   } | null;
 }
 
@@ -114,10 +114,10 @@ export function StatsSection({ stats }: StatsSectionProps) {
             color="#a78bfa"
           />
           <StatItem
-            icon={Building2}
-            value={stats?.colleges ?? 0}
+            icon={UploadCloud}
+            value={stats?.submissions ?? 0}
             suffix="+"
-            label="Colleges Represented"
+            label="Project Submissions"
             color="#f59e0b"
           />
         </div>

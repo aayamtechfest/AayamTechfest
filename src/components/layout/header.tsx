@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { getSettings } from "@/actions/settings.actions";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -14,6 +15,8 @@ const navLinks = [
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("/LogoGIF.gif");
+  const [headerLogoUrl, setHeaderLogoUrl] = useState("/RKDF-LOGO.png");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,6 +39,20 @@ export function Header() {
     };
   }, [isMobileMenuOpen]);
 
+  // Load branding assets dynamically
+  useEffect(() => {
+    async function loadBranding() {
+      try {
+        const settings = await getSettings();
+        if (settings?.logoUrl) setLogoUrl(settings.logoUrl);
+        if (settings?.headerLogoUrl) setHeaderLogoUrl(settings.headerLogoUrl);
+      } catch (err) {
+        console.error("Failed to load header branding settings:", err);
+      }
+    }
+    loadBranding();
+  }, []);
+
   return (
     <>
       <header
@@ -48,14 +65,14 @@ export function Header() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="group flex items-center gap-2">
-            <div className="h-15 w-15 overflow-hidden rounded-full">
-  <img
-    src="/LogoGIF.gif"
-    alt="AAYAM Logo"
-    className="h-full w-full object-cover rounded-full"
-  />
-</div>
-            <span className="gradient-text font-heading text-2xl font-bold tracking-tight">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 md:h-15 md:w-15 overflow-hidden rounded-full">
+              <img
+                src={logoUrl}
+                alt="AAYAM Logo"
+                className="h-full w-full object-cover rounded-full"
+              />
+            </div>
+            <span className="hidden sm:block gradient-text font-heading text-2xl font-bold tracking-tight">
               AAYAM
             </span>
           </Link>
@@ -74,7 +91,7 @@ export function Header() {
           </nav>
 
           {/* Right Section (CTA, RKDF Logo, Mobile Menu Button) */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* Desktop CTA */}
             <div className="hidden md:block">
               <Link
@@ -85,11 +102,11 @@ export function Header() {
               </Link>
             </div>
 
-            {/* RKDF Logo */}
+            {/* RKDF Logo (hidden on mobile/tablet, visible on desktop) */}
             <img
-              src="/RKDF-LOGO.png"
+              src={headerLogoUrl}
               alt="RKDF Logo"
-              className="h-12 md:h-16 w-auto object-contain"
+              className="hidden md:block h-16 w-auto object-contain"
             />
 
             {/* Mobile Menu Button */}
@@ -121,44 +138,60 @@ export function Header() {
 
       {/* Mobile Slide-out Panel */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-72 bg-[#1a1a2e] shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
-          isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed top-0 right-0 z-50 h-full w-72 bg-[#1a1a2e] shadow-2xl transition-all duration-300 ease-in-out md:hidden ${
+          isMobileMenuOpen
+            ? "translate-x-0 opacity-100 pointer-events-auto"
+            : "translate-x-full opacity-0 pointer-events-none invisible"
         }`}
       >
-        <div className="flex flex-col p-6 pt-20">
-          {/* Close button inside panel */}
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="absolute top-5 right-5 rounded-lg p-2 text-gray-400 hover:text-white"
-            aria-label="Close menu"
-          >
-            <X className="h-6 w-6" />
-          </button>
-
-          {/* Mobile Nav Links */}
-          <nav className="flex flex-col gap-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="rounded-lg px-4 py-3 text-lg font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Mobile CTA */}
-          <div className="mt-8">
-            <Link
-              href="/events"
+        <div className="flex h-full flex-col justify-between p-6 pt-20">
+          <div className="flex flex-col">
+            {/* Close button inside panel */}
+            <button
+              type="button"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="block w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:shadow-indigo-500/40 hover:brightness-110"
+              className="absolute top-5 right-5 rounded-lg p-2 text-gray-400 hover:text-white"
+              aria-label="Close menu"
             >
-              Register Now
-            </Link>
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Mobile Nav Links */}
+            <nav className="flex flex-col gap-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-lg px-4 py-3 text-lg font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Mobile CTA */}
+            <div className="mt-8">
+              <Link
+                href="/events"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:shadow-indigo-500/40 hover:brightness-110"
+              >
+                Register Now
+              </Link>
+            </div>
+          </div>
+
+          {/* Sponsored Badge (shown inside panel on mobile) */}
+          <div className="mt-auto pt-6 border-t border-white/10 flex flex-col items-center gap-2">
+            <img
+              src={headerLogoUrl}
+              alt="RKDF Logo"
+              className="h-10 w-auto object-contain opacity-80"
+            />
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
+              Sponsored By RKDF
+            </span>
           </div>
         </div>
       </div>

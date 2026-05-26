@@ -201,6 +201,11 @@ export async function getEventBySlug(slug: string) {
   try {
     return await prisma.event.findUnique({
       where: { slug },
+      include: {
+        winner1: true,
+        winner2: true,
+        winner3: true,
+      },
     });
   } catch (error) {
     console.warn(`⚠️ [Prisma] Database is not reachable. Failed to fetch event by slug: ${slug}`);

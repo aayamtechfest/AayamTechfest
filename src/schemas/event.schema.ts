@@ -38,6 +38,7 @@ export const eventSchema = z.object({
   }),
   isPublished: z.boolean().default(false),
   isRegistrationOpen: z.boolean().default(true),
+  isSubmissionOpen: z.boolean().default(false),
   sortOrder: z.coerce.number().default(0),
 });
 

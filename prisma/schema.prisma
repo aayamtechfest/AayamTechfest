@@ -41,9 +41,18 @@ model Event {
   problemReleaseTime   DateTime?
   isPublished          Boolean           @default(false)
   isRegistrationOpen   Boolean           @default(true)
+  isSubmissionOpen     Boolean           @default(false)
   sortOrder            Int               @default(0)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
+
+  winner1Id            String?
+  winner1              Registration?     @relation("Winner1", fields: [winner1Id], references: [id], onDelete: SetNull)
+  winner2Id            String?
+  winner2              Registration?     @relation("Winner2", fields: [winner2Id], references: [id], onDelete: SetNull)
+  winner3Id            String?
+  winner3              Registration?     @relation("Winner3", fields: [winner3Id], references: [id], onDelete: SetNull)
+
 
   registrations Registration[]
   formFields    FormFieldConfig[]
@@ -80,6 +89,11 @@ model Registration {
   customFields     Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+
+  submission       Submission?
+  winner1Events    Event[]            @relation("Winner1")
+  winner2Events    Event[]            @relation("Winner2")
+  winner3Events    Event[]            @relation("Winner3")
 
   @@index([eventId])
   @@index([email])
@@ -149,7 +163,6 @@ model Settings {
   headerLogoUrl       String?
   footerLogoUrl       String?
   faviconUrl          String?
-  heroBannerUrl       String?
   paymentQrCodeUrl    String?
   paymentInstructions String?  @db.Text
   contactEmail        String?
@@ -210,5 +223,17 @@ model ContactMessage {
   message   String   @db.Text
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// ───────────────────── Submission ──────────────────────
+model Submission {
+  id              String       @id @default(cuid())
+  registrationId  String       @unique
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  participantName String
+  email           String
+  projectLink     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
 

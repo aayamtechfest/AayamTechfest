@@ -190,6 +190,41 @@ export default async function AdminRegistrationDetailPage({ params }: PageProps)
               )}
             </div>
           )}
+
+          {/* Submission Info */}
+          {registration.submission && (
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 backdrop-blur-md shadow-xl space-y-4">
+              <h3 className="font-heading text-lg font-semibold text-emerald-400 border-b border-white/5 pb-2 flex items-center gap-2">
+                <ExternalLink className="h-5 w-5" />
+                <span>Project Submission</span>
+              </h3>
+
+              <div className="grid gap-6 sm:grid-cols-2 text-sm">
+                <div className="sm:col-span-2">
+                  <span className="block text-xs text-gray-500 uppercase tracking-wider">Project Link</span>
+                  <a
+                    href={registration.submission.projectLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-400 hover:text-indigo-300 underline transition-colors break-all flex items-center gap-1.5 mt-1"
+                  >
+                    <span>{registration.submission.projectLink}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                </div>
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase tracking-wider">Submitted By</span>
+                  <span className="font-medium text-white block mt-1">{registration.submission.participantName}</span>
+                </div>
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase tracking-wider">Submitted On</span>
+                  <span className="font-medium text-white block mt-1">
+                    {formatDateTime(registration.submission.createdAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Status and Payment verification */}

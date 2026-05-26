@@ -13,7 +13,6 @@ const IMAGE_FIELDS = [
   "headerLogoUrl",
   "footerLogoUrl",
   "faviconUrl",
-  "heroBannerUrl",
   "paymentQrCodeUrl",
 ] as const;
 

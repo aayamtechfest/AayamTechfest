@@ -13,7 +13,6 @@ export const settingsSchema = z.object({
   headerLogoUrl: z.string().optional().or(z.literal("")),
   footerLogoUrl: z.string().optional().or(z.literal("")),
   faviconUrl: z.string().optional().or(z.literal("")),
-  heroBannerUrl: z.string().optional().or(z.literal("")),
   paymentQrCodeUrl: z.string().optional().or(z.literal("")),
   contactAddress: z.string().optional().or(z.literal("")),
   countdownDate: z.string().optional().or(z.literal("")),

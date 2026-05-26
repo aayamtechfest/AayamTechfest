@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatDateTime, formatDate, serializePrisma } from "@/lib/utils";
 import { ReleaseCountdown } from "@/components/events/release-countdown";
+import { ProjectSubmissionForm } from "@/components/events/project-submission-form";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -74,6 +75,10 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
     { id: "schedule", label: "Schedule" },
   ];
 
+  if (event.isSubmissionOpen) {
+    tabs.push({ id: "submission", label: "Project Submission" });
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0f0f23]">
       <Header />
@@ -89,9 +94,20 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
           </Link>
 
           {/* Banner / Title Area */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-md shadow-2xl mb-8 animate-slide-down">
-            <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-indigo-500/10 blur-3xl" />
-            <div className="relative z-10">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-md shadow-2xl mb-8 animate-slide-down min-h-[220px] flex items-end">
+            {event.bannerUrl ? (
+              <>
+                <img
+                  src={event.bannerUrl}
+                  alt={`${event.name} Banner`}
+                  className="absolute inset-0 h-full w-full object-cover opacity-25"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f23] via-black/20 to-black/40" />
+              </>
+            ) : (
+              <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-indigo-500/10 blur-3xl" />
+            )}
+            <div className="relative z-10 w-full">
               <h1 className="font-heading text-3xl font-extrabold text-white sm:text-5xl">
                 {event.name}
               </h1>
@@ -100,6 +116,38 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               </p>
             </div>
           </div>
+
+          {/* Winners Banner */}
+          {(event.winner1 || event.winner2 || event.winner3) && (
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 backdrop-blur-md shadow-xl mb-8 animate-fade-in flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+                  <Trophy className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-bold text-white">Winners Announced!</h3>
+                  <p className="text-sm text-gray-400">Congratulations to the top performers of this competition.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 w-full md:w-auto justify-center">
+                {event.winner1 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-yellow-500/25 border border-yellow-500/35 px-4 py-2 text-xs font-semibold text-yellow-300">
+                    🥇 1st: {event.winner1.teamName ? `Team ${event.winner1.teamName}` : event.winner1.participantName}
+                  </div>
+                )}
+                {event.winner2 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-slate-400/20 border border-slate-400/35 px-4 py-2 text-xs font-semibold text-slate-300">
+                    🥈 2nd: {event.winner2.teamName ? `Team ${event.winner2.teamName}` : event.winner2.participantName}
+                  </div>
+                )}
+                {event.winner3 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-amber-700/25 border border-amber-700/35 px-4 py-2 text-xs font-semibold text-amber-400">
+                    🥉 3rd: {event.winner3.teamName ? `Team ${event.winner3.teamName}` : event.winner3.participantName}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-8 lg:grid-cols-3 animate-slide-up [animation-delay:150ms]">
             {/* Main Tabs Area */}
@@ -123,6 +171,10 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
 
               {/* Tab Contents */}
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl text-gray-300">
+                {activeTab === "submission" && event.isSubmissionOpen && (
+                  <ProjectSubmissionForm eventId={event.id} />
+                )}
+
                 {activeTab === "overview" && (
                   <div className="space-y-4">
                     <h3 className="font-heading text-xl font-bold text-white mb-2">Event Description</h3>

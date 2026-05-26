@@ -379,6 +379,71 @@ export async function getPaymentRejectedEmail(params: {
   };
 }
 
+// ─── Submission Confirmation Email ─────────────────────────────────────────
+export async function getSubmissionConfirmationEmail(params: {
+  participantName: string;
+  eventName: string;
+  registrationId: string;
+  projectLink: string;
+}): Promise<{ subject: string; html: string }> {
+  const { participantName, eventName, registrationId, projectLink } = params;
+  const branding = await getEmailBranding();
+
+  const contentHtml = `
+    <h2 style="color:#e0e7ff;font-size:24px;font-weight:700;margin:0 0 6px;">
+      Project Submitted Successfully! 🚀
+    </h2>
+    <p style="color:#94a3b8;font-size:15px;margin:0 0 24px;line-height:1.7;">
+      Hi <strong style="color:#e0e7ff;">${participantName}</strong>, your project submission for <strong style="color:#a5b4fc;">${eventName}</strong> has been received. Our team will review your work!
+    </p>
+
+    <!-- Detail Card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0a0a1a;border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:28px;">
+      <tr>
+        <td style="padding:24px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">Registration ID</td>
+              <td align="right" style="color:#a5b4fc;font-size:16px;font-weight:700;letter-spacing:2px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">${registrationId}</td>
+            </tr>
+            <tr>
+              <td style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">Event</td>
+              <td align="right" style="color:#f1f5f9;font-size:14px;font-weight:600;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">${eventName}</td>
+            </tr>
+            <tr>
+              <td style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;padding:10px 0;">Project Link</td>
+              <td align="right" style="padding:10px 0;">
+                <a href="${projectLink}" target="_blank" style="color:#34d399;font-size:14px;font-weight:600;text-decoration:none;word-break:break-all;">
+                  Open Project 🔗
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.25);border-radius:12px;margin-bottom:28px;">
+      <tr>
+        <td style="padding:18px 20px;">
+          <p style="color:#34d399;font-size:13px;margin:0;line-height:1.7;">
+            Your project link has been securely saved. You can update your submission as long as the submission window remains open.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">
+      Thank you for participating in AAYAM. Best of luck with your evaluation! 🌟
+    </p>
+  `;
+
+  return {
+    subject: `Project Submitted: ${eventName} | ${branding.siteName}`,
+    html: wrapEmailTemplate(contentHtml, "#0891b2", branding),
+  };
+}
+
 // ─── Broadcast Email ──────────────────────────────────────────────────────────
 
 /** Converts basic Markdown to HTML for broadcast emails */

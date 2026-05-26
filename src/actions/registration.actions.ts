@@ -171,7 +171,7 @@ export async function getRegistrationById(id: string) {
   try {
     return await prisma.registration.findUnique({
       where: { id },
-      include: { event: true, teamMembers: true },
+      include: { event: true, teamMembers: true, submission: true },
     });
   } catch (error) {
     console.warn(`⚠️ [Prisma] Database is not reachable. Failed to fetch registration by id: ${id}`);

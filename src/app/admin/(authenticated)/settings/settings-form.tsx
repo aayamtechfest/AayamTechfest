@@ -95,7 +95,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
           headerLogoUrl: settings.headerLogoUrl || "",
           footerLogoUrl: settings.footerLogoUrl || "",
           faviconUrl: settings.faviconUrl || "",
-          heroBannerUrl: settings.heroBannerUrl || "",
           paymentQrCodeUrl: settings.paymentQrCodeUrl || "",
           contactAddress: settings.contactAddress || "",
           countdownDate: formatToISTInputString(settings.countdownDate),
@@ -118,7 +117,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
           headerLogoUrl: "",
           footerLogoUrl: "",
           faviconUrl: "",
-          heroBannerUrl: "",
           paymentQrCodeUrl: "",
           contactAddress: "University Campus, Main Road",
           countdownDate: "",
@@ -132,7 +130,9 @@ export function SettingsForm({ settings }: SettingsFormProps) {
 
   const watchLogo = watch("logoUrl");
   const watchQrCode = watch("paymentQrCodeUrl");
-  const watchHeroBanner = watch("heroBannerUrl");
+  const watchHeaderLogo = watch("headerLogoUrl");
+  const watchFooterLogo = watch("footerLogoUrl");
+  const watchFavicon = watch("faviconUrl");
 
   // File Upload Helper
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof SettingsFormData, folder: string) {
@@ -316,11 +316,11 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               Branding Assets
             </h3>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-1">
               {/* Logo URL */}
               <div>
                 <label className="block text-sm font-medium text-gray-300">Logo Image URL</label>
-                <div className="mt-2 flex gap-3">
+                <div className="mt-2 flex gap-3 max-w-md">
                   <input
                     type="text"
                     {...register("logoUrl")}
@@ -350,19 +350,21 @@ export function SettingsForm({ settings }: SettingsFormProps) {
                   />
                 )}
               </div>
+            </div>
 
-              {/* Hero Banner URL */}
+            <div className="grid gap-6 sm:grid-cols-3">
+              {/* Header Logo */}
               <div>
-                <label className="block text-sm font-medium text-gray-300">Hero Banner Image URL</label>
+                <label className="block text-sm font-medium text-gray-300">Header Logo URL (Optional)</label>
                 <div className="mt-2 flex gap-3">
                   <input
                     type="text"
-                    {...register("heroBannerUrl")}
-                    className="flex-1 rounded-xl border border-white/10 bg-[#16213e] px-4 py-2.5 text-xs text-white focus:outline-none"
-                    placeholder="https://cloudinary.com/..."
+                    {...register("headerLogoUrl")}
+                    className="flex-1 rounded-xl border border-white/10 bg-[#16213e] px-3 py-2.5 text-xs text-white focus:outline-none"
+                    placeholder="Header Logo URL"
                   />
-                  <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-semibold text-white hover:bg-white/10 transition-all">
-                    {uploads.heroBannerUrl ? (
+                  <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10 transition-all">
+                    {uploads.headerLogoUrl ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Upload className="h-4 w-4" />
@@ -370,39 +372,56 @@ export function SettingsForm({ settings }: SettingsFormProps) {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleImageUpload(e, "heroBannerUrl", "aayam/banners")}
-                      disabled={uploads.heroBannerUrl}
+                      onChange={(e) => handleImageUpload(e, "headerLogoUrl", "aayam/logos")}
+                      disabled={uploads.headerLogoUrl}
                       className="hidden"
                     />
                   </label>
                 </div>
-                {watchHeroBanner && (
+                {watchHeaderLogo && (
                   <img
-                    src={watchHeroBanner}
-                    alt="Hero preview"
-                    className="mt-3 rounded-lg border border-white/10 h-16 w-full object-cover bg-black/40"
+                    src={watchHeaderLogo}
+                    alt="Header logo preview"
+                    className="mt-3 rounded-lg border border-white/10 h-10 object-contain bg-black/40 p-1"
                   />
                 )}
               </div>
-            </div>
 
-            <div className="grid gap-6 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Header Logo URL (Optional)</label>
-                <input
-                  type="text"
-                  {...register("headerLogoUrl")}
-                  className="mt-2 block w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-white focus:outline-none"
-                />
-              </div>
+              {/* Footer Logo */}
               <div>
                 <label className="block text-sm font-medium text-gray-300">Footer Logo URL (Optional)</label>
-                <input
-                  type="text"
-                  {...register("footerLogoUrl")}
-                  className="mt-2 block w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-white focus:outline-none"
-                />
+                <div className="mt-2 flex gap-3">
+                  <input
+                    type="text"
+                    {...register("footerLogoUrl")}
+                    className="flex-1 rounded-xl border border-white/10 bg-[#16213e] px-3 py-2.5 text-xs text-white focus:outline-none"
+                    placeholder="Footer Logo URL"
+                  />
+                  <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/10 transition-all">
+                    {uploads.footerLogoUrl ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, "footerLogoUrl", "aayam/logos")}
+                      disabled={uploads.footerLogoUrl}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                {watchFooterLogo && (
+                  <img
+                    src={watchFooterLogo}
+                    alt="Footer logo preview"
+                    className="mt-3 rounded-lg border border-white/10 h-10 object-contain bg-black/40 p-1"
+                  />
+                )}
               </div>
+
+              {/* Favicon Logo */}
               <div>
                 <label className="block text-sm font-medium text-gray-300">Favicon URL (Optional)</label>
                 <div className="mt-2 flex gap-3">
@@ -427,6 +446,13 @@ export function SettingsForm({ settings }: SettingsFormProps) {
                     />
                   </label>
                 </div>
+                {watchFavicon && (
+                  <img
+                    src={watchFavicon}
+                    alt="Favicon preview"
+                    className="mt-3 rounded-lg border border-white/10 h-10 w-10 object-contain bg-black/40 p-1"
+                  />
+                )}
               </div>
             </div>
           </div>

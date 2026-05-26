@@ -81,6 +81,7 @@ export function EventForm({ initialData, onSubmit, title, description }: EventFo
           problemReleaseTime: "",
           isPublished: false,
           isRegistrationOpen: true,
+          isSubmissionOpen: false,
           sortOrder: 0,
         },
   });
@@ -484,6 +485,18 @@ export function EventForm({ initialData, onSubmit, title, description }: EventFo
             <div>
               <span className="block text-sm font-medium text-white">Registration Open</span>
               <span className="text-xs text-gray-500">Allow participants to register</span>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              {...register("isSubmissionOpen")}
+              className="h-5 w-5 rounded border-white/10 bg-[#16213e] text-indigo-600 focus:ring-indigo-500"
+            />
+            <div>
+              <span className="block text-sm font-medium text-white">Submission Form Enabled</span>
+              <span className="text-xs text-gray-500">Allow participants to submit project links</span>
             </div>
           </label>
         </div>

@@ -1,9 +1,11 @@
 import { getSettings } from "@/actions/settings.actions";
 import { getPublishedEvents } from "@/actions/event.actions";
+import { getEventsWithWinners } from "@/actions/winner.actions";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { HeroSection } from "@/components/landing/hero-section";
 import { EventHighlights } from "@/components/landing/event-highlights";
+import { WinnersPodium } from "@/components/landing/winners-podium";
 import { StatsSection } from "@/components/landing/stats-section";
 import { CTASection } from "@/components/landing/cta-section";
 import { prisma } from "@/lib/prisma";
@@ -23,31 +25,18 @@ export default async function Home() {
     publishedEvents,
     registrationCount,
     teamMemberCount,
-    registrationColleges,
-    teamMemberColleges,
+    submissionCount,
+    eventsWithWinners,
   ] = await Promise.all([
     getSettings().catch(() => null),
     getPublishedEvents().catch(() => []),
     prisma.registration.count().catch(() => 0),
     prisma.teamMember.count().catch(() => 0),
-    prisma.registration
-      .findMany({ select: { collegeName: true }, distinct: ["collegeName"] })
-      .catch(() => []),
-    prisma.teamMember
-      .findMany({
-        where: { NOT: { collegeName: null } },
-        select: { collegeName: true },
-        distinct: ["collegeName"],
-      })
-      .catch(() => []),
+    prisma.submission.count().catch(() => 0),
+    getEventsWithWinners().catch(() => []),
   ]);
 
   const totalCompetitors = registrationCount + teamMemberCount;
-  const uniqueColleges = new Set([
-    ...registrationColleges.map((r) => r.collegeName.trim().toLowerCase()),
-    ...teamMemberColleges.map((t) => t.collegeName?.trim().toLowerCase()).filter(Boolean),
-  ]);
-  const collegeCount = uniqueColleges.size;
   const eventCount = publishedEvents.length;
 
   const heroSettings = settings
@@ -66,12 +55,15 @@ export default async function Home() {
           eventDate={settings?.countdownDate}
         />
         <EventHighlights events={publishedEvents} />
+        {eventsWithWinners && eventsWithWinners.length > 0 && (
+          <WinnersPodium events={eventsWithWinners} />
+        )}
         <StatsSection
           stats={{
             events: eventCount,
             registrations: registrationCount,
             competitors: totalCompetitors,
-            colleges: collegeCount,
+            submissions: submissionCount,
           }}
         />
         <CTASection />

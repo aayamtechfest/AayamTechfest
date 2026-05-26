@@ -50,8 +50,133 @@ export function HeroSection({ settings, eventDate }: HeroSectionProps) {
     return () => clearInterval(interval);
   }, [eventDate]);
 
+  useEffect(() => {
+    const canvas = document.getElementById("particles-canvas") as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      radius: number;
+      color: string;
+    }> = [];
+
+    const colors = [
+      "rgba(99, 102, 241, 0.45)", // indigo
+      "rgba(168, 85, 247, 0.45)", // purple
+      "rgba(59, 130, 246, 0.35)",  // blue
+      "rgba(244, 63, 94, 0.35)"   // rose
+    ];
+
+    // Initialize particles based on screen size
+    const particleCount = Math.min(80, Math.floor((width * height) / 20000));
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        radius: Math.random() * 2 + 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+
+    const mouse = { x: -1000, y: -1000, radius: 150 };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+
+    const handleMouseLeave = () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    };
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseleave", handleMouseLeave);
+    window.addEventListener("resize", handleResize);
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw connections
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < particles.length; i++) {
+        const p1 = particles[i];
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+          if (dist < 130) {
+            ctx.strokeStyle = `rgba(99, 102, 241, ${0.15 * (1 - dist / 130)})`;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw and update particles
+      particles.forEach((p) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Interaction with mouse (push away slightly)
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < mouse.radius) {
+          const force = (mouse.radius - dist) / mouse.radius;
+          const angle = Math.atan2(dy, dx);
+          p.x += Math.cos(angle) * force * 1.8;
+          p.y += Math.sin(angle) * force * 1.8;
+        }
+
+        // Boundary wrap
+        if (p.x < 0) p.x = width;
+        else if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        else if (p.y > height) p.y = 0;
+      });
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0f0f23] pt-20">
+      {/* Interactive Particles Canvas */}
+      <canvas id="particles-canvas" className="absolute inset-0 pointer-events-none z-0" />
+
       {/* Slow spinning grid background overlay */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#0f0f23_80%)] z-1" />
       <div
@@ -100,7 +225,7 @@ export function HeroSection({ settings, eventDate }: HeroSectionProps) {
 
         {/* Tagline */}
         <p className="mx-auto mt-6 max-w-2xl text-lg font-medium text-gray-300 sm:text-2xl animate-slide-up [animation-delay:150ms]">
-          {settings?.tagline || "Innovate. Compete. Excel."}
+          {settings?.tagline || "Innovate. Compete. Learn."}
         </p>
 
         <p className="mx-auto mt-4 max-w-lg text-sm text-gray-400 sm:text-base animate-slide-up [animation-delay:250ms]">

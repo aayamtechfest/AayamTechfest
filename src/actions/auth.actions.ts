@@ -55,7 +55,7 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   const session = await getSession();
   session.destroy();
-  redirect("/admin/login");
+  redirect("/");
 }
 
 export async function changePasswordAction(
