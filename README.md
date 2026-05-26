@@ -16,7 +16,7 @@
   <a href="https://github.com/aayamtechfest/aayam-techfest-platform">
     <img src="https://img.shields.io/github/stars/aayamtechfest/aayam-techfest-platform?style=for-the-badge&logo=github&color=4F46E5" alt="GitHub Stars" />
   </a>
-  <a href="[https://aayam-techfest.vercel.app/](https://aayam-techfest.vercel.app/)">
+  <a href="https://aayam-techfest.vercel.app">
     <img src="https://img.shields.io/badge/Live%20Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
   </a>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=nextdotjs&color=000" alt="Next.js 16" />
