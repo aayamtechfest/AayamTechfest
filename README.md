@@ -86,29 +86,34 @@ npm install
 ### 3. Environment Variables
 Create a `.env` file in the root directory and populate the variables:
 ```env
-# Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/aayam?schema=public"
+# ─── Database (Supabase PostgreSQL Connection Pooling) ───
+# Transaction pooler string pointing to port 6543 (used by Prisma at runtime)
+DATABASE_URL="postgresql://postgres.[username]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-# Auth and Session Secret
-JWT_SECRET="your-super-secret-jwt-key"
+# Session mode connection string pointing directly to port 5432 (used by Prisma for migrations)
+DIRECT_URL="postgresql://postgres.[username]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
 
-# Cloudinary Keys
+# ─── Cloudinary SDK (Media Storage) ───
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your-cloudinary-cloud-name"
 CLOUDINARY_API_KEY="your-cloudinary-api-key"
 CLOUDINARY_API_SECRET="your-cloudinary-api-secret"
 
-# Resend Mail Configuration
-RESEND_API_KEY="re_yourKey"
-EMAIL_FROM="onboarding@resend.dev"
+# ─── Email Configuration (Nodemailer + Gmail SMTP) ───
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_EMAIL="aayamhackathon@gmail.com"
+SMTP_PASSWORD="your_google_app_password_here"
+SMTP_FROM_NAME="AAYAM Hackathon Team"
 
-# Admin Account Default Credentials
+# ─── Admin Seed Account Default Credentials ───
 ADMIN_EMAIL="admin@aayam.tech"
 ADMIN_PASSWORD="your-strong-admin-password"
 
-# Session Security Key
-SESSION_SECRET="your-32-character-session-secret-string"
+# ─── Session Configuration (iron-session) ───
+# Must be a 32-character string
+SESSION_SECRET="replace-with-a-32-character-session-secret"
 
-# Site URLs
+# ─── Canonical Site URLs ───
 NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 ```
 
