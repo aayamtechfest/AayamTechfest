@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   title: "AAYAM - University Event & Hackathon Platform",
   description:
     "AAYAM is the ultimate university event and hackathon management platform. Discover events, register your team, and compete to innovate.",
+
+  verification: {
+    google: "-tLV5LGzklIMBfcWQzZMSEMgq4uT35lAkcimmIBuXtw",
+  },
+
   keywords: [
     "AAYAM",
     "hackathon",
@@ -28,6 +33,7 @@ export const metadata: Metadata = {
     "tech fest",
     "coding competition",
   ],
+
   openGraph: {
     title: "AAYAM - University Event & Hackathon Platform",
     description:
@@ -36,13 +42,13 @@ export const metadata: Metadata = {
     siteName: "AAYAM",
     type: "website",
   },
+
   icons: {
     icon: "/Logo.png",
     shortcut: "/Logo.png",
     apple: "/Logo.png",
   },
 };
-
 export default function RootLayout({
   children,
 }: Readonly<{
