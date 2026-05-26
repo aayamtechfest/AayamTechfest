@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
-import { GoogleAnalytics } from '@next/third-parties/google'
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -73,7 +73,20 @@ export default function RootLayout({
     closeButton
   />
 
-  <GoogleAnalytics gaId="G-7LNPV0D7NN" />
+  <Script
+    src="https://www.googletagmanager.com/gtag/js?id=G-7LNPV0D7NN"
+    strategy="afterInteractive"
+  />
+
+  <Script id="google-analytics" strategy="afterInteractive">
+    {`
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-7LNPV0D7NN');
+    `}
+  </Script>
 </body>
     </html>
   );
