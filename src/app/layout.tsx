@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
+import { GoogleAnalytics } from '@next/third-parties/google'
 import "./globals.css";
 
 const inter = Inter({
@@ -62,15 +63,18 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <LoadingScreen />
-        {children}
-        <Toaster
-          position="top-right"
-          theme="dark"
-          richColors
-          closeButton
-        />
-      </body>
+  <LoadingScreen />
+  {children}
+
+  <Toaster
+    position="top-right"
+    theme="dark"
+    richColors
+    closeButton
+  />
+
+  <GoogleAnalytics gaId="G-7LNPV0D7NN" />
+</body>
     </html>
   );
 }
