@@ -39,10 +39,7 @@ export function WinnersPodium({ events }: WinnersPodiumProps) {
     return winner.teamName || winner.participantName;
   };
 
-  const getWinnerCollege = (winner: RegistrationData | null) => {
-    if (!winner) return "";
-    return winner.collegeName;
-  };
+
 
   const getWinnerRegId = (winner: RegistrationData | null) => {
     if (!winner) return "";
@@ -105,9 +102,11 @@ export function WinnersPodium({ events }: WinnersPodiumProps) {
               <p className="text-xs text-indigo-400 font-semibold mt-1">
                 {getWinnerRegId(currentEvent.winner2)}
               </p>
-              <p className="text-xs text-gray-400 mt-2 truncate max-w-full">
-                {getWinnerCollege(currentEvent.winner2)}
-              </p>
+              {currentEvent.winner2 && currentEvent.winner2.teamName && (
+                <p className="text-xs text-gray-400 mt-2 truncate max-w-full">
+                  Leader: {currentEvent.winner2.participantName}
+                </p>
+              )}
             </div>
             {/* Podium Base */}
             <div className="hidden md:flex flex-col items-center justify-center w-full h-32 bg-gradient-to-t from-indigo-950/40 to-slate-800/40 border-t border-x border-slate-500/20 rounded-t-2xl shadow-xl shadow-black/40">
@@ -134,9 +133,11 @@ export function WinnersPodium({ events }: WinnersPodiumProps) {
               <p className="text-xs text-yellow-400 font-semibold mt-1">
                 {getWinnerRegId(currentEvent.winner1)}
               </p>
-              <p className="text-xs text-gray-300 mt-2 truncate max-w-full">
-                {getWinnerCollege(currentEvent.winner1)}
-              </p>
+              {currentEvent.winner1 && currentEvent.winner1.teamName && (
+                <p className="text-xs text-gray-300 mt-2 truncate max-w-full">
+                  Leader: {currentEvent.winner1.participantName}
+                </p>
+              )}
             </div>
             {/* Podium Base */}
             <div className="hidden md:flex flex-col items-center justify-center w-full h-44 bg-gradient-to-t from-indigo-950/40 to-yellow-600/20 border-t border-x border-yellow-500/30 rounded-t-2xl shadow-2xl shadow-black/50">
@@ -163,9 +164,11 @@ export function WinnersPodium({ events }: WinnersPodiumProps) {
               <p className="text-xs text-indigo-400 font-semibold mt-1">
                 {getWinnerRegId(currentEvent.winner3)}
               </p>
-              <p className="text-xs text-gray-400 mt-2 truncate max-w-full">
-                {getWinnerCollege(currentEvent.winner3)}
-              </p>
+              {currentEvent.winner3 && currentEvent.winner3.teamName && (
+                <p className="text-xs text-gray-400 mt-2 truncate max-w-full">
+                  Leader: {currentEvent.winner3.participantName}
+                </p>
+              )}
             </div>
             {/* Podium Base */}
             <div className="hidden md:flex flex-col items-center justify-center w-full h-24 bg-gradient-to-t from-indigo-950/40 to-amber-900/30 border-t border-x border-amber-800/20 rounded-t-2xl shadow-xl shadow-black/40">
