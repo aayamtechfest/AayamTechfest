@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ───────────────────────── Admin ─────────────────────────
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String   @default("Admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────── Event ─────────────────────────
+model Event {
+  id                   String            @id @default(cuid())
+  slug                 String            @unique
+  name                 String
+  shortDescription     String?
+  description          String            @db.Text
+  rules                String?           @db.Text
+  eligibility          String?           @db.Text
+  format               String?
+  participationType    ParticipationType @default(SOLO)
+  minTeamSize          Int               @default(1)
+  maxTeamSize          Int               @default(1)
+  prizeDetails         String?           @db.Text
+  venue                String?
+  schedule             String?           @db.Text
+  bannerUrl            String?
+  registrationFee      Decimal?          @db.Decimal(10, 2)
+  lastRegistrationDate DateTime?
+  eventDate            DateTime?
+  problemSummary       String?           @db.Text
+  problemStatement     String?           @db.Text
+  problemReleaseTime   DateTime?
+  isPublished          Boolean           @default(false)
+  isRegistrationOpen   Boolean           @default(true)
+  sortOrder            Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  registrations Registration[]
+  formFields    FormFieldConfig[]
+}
+
+enum ParticipationType {
+  SOLO
+  TEAM
+  BOTH
+}
+
+// ───────────────────── Registration ──────────────────────
+model Registration {
+  id               String             @id @default(cuid())
+  registrationId   String             @unique
+  eventId          String
+  event            Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantName  String
+  email            String
+  phone            String
+  collegeName      String
+  department       String?
+  yearOrSemester   String?
+  teamName         String?
+  teamMembers      TeamMember[]
+  paymentStatus    PaymentStatus      @default(PENDING)
+  paymentReference String?
+  paymentScreenshot String?
+  paymentAmount    Decimal?           @db.Decimal(10, 2)
+  paymentVerifiedAt DateTime?
+  paymentNotes     String?
+  status           RegistrationStatus @default(SUBMITTED)
+  notes            String?
+  customFields     Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([eventId])
+  @@index([email])
+  @@index([paymentStatus])
+  @@index([status])
+}
+
+model TeamMember {
+  id             String       @id @default(cuid())
+  registrationId String
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?
+  phone          String?
+  collegeName    String?
+  department     String?
+  yearOrSemester String?
+  role           String?
+  createdAt      DateTime     @default(now())
+
+  @@index([registrationId])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RegistrationStatus {
+  SUBMITTED
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  CLOSED
+  EXPIRED
+}
+
+// ──────────────── Form Field Configuration ───────────────
+model FormFieldConfig {
+  id          String   @id @default(cuid())
+  eventId     String?
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fieldName   String
+  label       String
+  type        String
+  placeholder String?
+  isRequired  Boolean  @default(false)
+  isVisible   Boolean  @default(true)
+  options     Json?
+  sortOrder   Int      @default(0)
+  section     String   @default("participant")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+// ───────────────────── Site Settings ─────────────────────
+model Settings {
+  id                  String   @id @default(cuid())
+  siteName            String   @default("AAYAM")
+  eventTitle          String   @default("AAYAM - University Event Platform")
+  tagline             String?
+  aboutContent        String?  @db.Text
+  logoUrl             String?
+  headerLogoUrl       String?
+  footerLogoUrl       String?
+  faviconUrl          String?
+  heroBannerUrl       String?
+  paymentQrCodeUrl    String?
+  paymentInstructions String?  @db.Text
+  contactEmail        String?
+  contactPhone        String?
+  contactAddress      String?  @default("University Campus, Main Road")
+  socialLinks         Json?
+  footerText          String?
+  themeColors         Json?
+  sponsorLogos        Json?
+  countdownDate       DateTime?
+  statParticipants    String?  @default("1000+")
+  statEvents          String?  @default("20+")
+  statColleges        String?  @default("15+")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ───────────────────── Announcements ─────────────────────
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  isPublished Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ──────────────────── Email Templates ────────────────────
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  subject   String
+  body      String   @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────── Uploaded Media ────────────────────
+model UploadedMedia {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  publicId  String
+  type      String
+  category  String
+  size      Int?
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────── Contact Message ────────────────────
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
