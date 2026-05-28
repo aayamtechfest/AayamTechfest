@@ -81,7 +81,7 @@ export default async function RegisterPage({ params }: PageProps) {
           </div>
 
           {/* Challenge Statement Banner */}
-          <div className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md max-w-2xl mx-auto shadow-xl animate-fade-in">
+          <div className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6 backdrop-blur-md max-w-2xl mx-auto shadow-xl animate-fade-in">
             <h4 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 text-center mb-2">Challenge Statement</h4>
             {event.problemReleaseTime && new Date() < new Date(event.problemReleaseTime) ? (
               <div className="space-y-4 animate-slide-up">

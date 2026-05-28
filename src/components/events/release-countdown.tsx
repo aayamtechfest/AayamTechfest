@@ -69,7 +69,7 @@ export function ReleaseCountdown({ releaseTime }: ReleaseCountdownProps) {
 
   return (
     <div className="mt-2 animate-fade-in">
-      <div className="grid grid-cols-4 gap-3 max-w-xs sm:max-w-sm mx-auto">
+      <div className="grid grid-cols-4 gap-1.5 min-[375px]:gap-2 sm:gap-3 max-w-[260px] min-[375px]:max-w-[300px] sm:max-w-sm mx-auto">
         {[
           { label: "Days", value: timeLeft.days },
           { label: "Hours", value: timeLeft.hours },
@@ -78,12 +78,12 @@ export function ReleaseCountdown({ releaseTime }: ReleaseCountdownProps) {
         ].map((item) => (
           <div
             key={item.label}
-            className="rounded-xl border border-white/10 bg-black/30 p-3 text-center transition-all duration-300 hover:scale-105 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5"
+            className="rounded-lg sm:rounded-xl border border-white/10 bg-black/30 py-2 px-1.5 min-[375px]:py-2.5 min-[375px]:px-2 sm:p-3 text-center transition-all duration-300 hover:scale-105 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5"
           >
-            <span className="block font-heading text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-200 via-indigo-400 to-purple-400 bg-clip-text text-transparent drop-shadow-md">
+            <span className="block font-heading text-lg min-[375px]:text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-200 via-indigo-400 to-purple-400 bg-clip-text text-transparent drop-shadow-md">
               {String(item.value).padStart(2, "0")}
             </span>
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold text-gray-400">{item.label}</span>
+            <span className="block text-[8px] min-[375px]:text-[9px] sm:text-[10px] uppercase tracking-normal min-[375px]:tracking-wider font-semibold text-gray-400">{item.label}</span>
           </div>
         ))}
       </div>

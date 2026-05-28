@@ -256,7 +256,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
                       <p className="mt-2 text-sm text-gray-400 max-w-md">
                         The problem statement for this event will be released in:
                       </p>
-                      <div className="my-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-5 shadow-lg shadow-indigo-500/10 transition-all duration-300 hover:shadow-indigo-500/20">
+                      <div className="my-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-3 sm:p-5 shadow-lg shadow-indigo-500/10 transition-all duration-300 hover:shadow-indigo-500/20">
                         <ReleaseCountdown releaseTime={event.problemReleaseTime.toString()} />
                       </div>
                       <p className="text-xs text-gray-500">
