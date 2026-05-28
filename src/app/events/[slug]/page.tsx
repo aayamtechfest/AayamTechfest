@@ -151,9 +151,9 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
 
           <div className="grid gap-8 lg:grid-cols-3 animate-slide-up [animation-delay:150ms]">
             {/* Main Tabs Area */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
               {/* Tab Navigation */}
-              <div className="flex border-b border-white/10 gap-4 overflow-x-auto pb-px no-scrollbar">
+              <div className="flex border-b border-white/10 gap-4 overflow-x-auto pb-px no-scrollbar max-w-full">
                 {tabs.map((tab) => (
                   <Link
                     key={tab.id}
