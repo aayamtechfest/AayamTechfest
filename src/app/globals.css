@@ -65,6 +65,17 @@ body {
   scrollbar-color: #334155 #0f0f23;
 }
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* ── Animation Keyframes ──────────────────────────────────── */
 
 @keyframes fadeIn {

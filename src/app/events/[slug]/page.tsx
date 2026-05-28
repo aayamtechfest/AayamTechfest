@@ -153,12 +153,13 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
             {/* Main Tabs Area */}
             <div className="lg:col-span-2 space-y-6">
               {/* Tab Navigation */}
-              <div className="flex border-b border-white/10 gap-4 overflow-x-auto pb-px">
+              <div className="flex border-b border-white/10 gap-4 overflow-x-auto pb-px no-scrollbar">
                 {tabs.map((tab) => (
                   <Link
                     key={tab.id}
                     href={`/events/${event.slug}?tab=${tab.id}`}
-                    className={`border-b-2 py-3 px-1 text-sm font-semibold tracking-wide whitespace-nowrap transition-all duration-200 ${
+                    scroll={false}
+                    className={`border-b-2 py-3 px-1 text-sm font-semibold tracking-wide whitespace-nowrap transition-all duration-200 shrink-0 ${
                       activeTab === tab.id
                         ? "border-indigo-500 text-indigo-400"
                         : "border-transparent text-gray-400 hover:text-white"
@@ -170,7 +171,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               </div>
 
               {/* Tab Contents */}
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl text-gray-300">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl text-gray-300 break-words">
                 {activeTab === "submission" && event.isSubmissionOpen && (
                   <ProjectSubmissionForm eventId={event.id} />
                 )}
