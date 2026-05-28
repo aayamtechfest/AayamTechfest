@@ -232,7 +232,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
               </div>
 
               {/* Problem Statement Card (Time-locked) */}
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl animate-fade-in">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 backdrop-blur-md shadow-xl animate-fade-in">
                 <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                   <h3 className="font-heading text-xl font-bold text-white">Challenge Statement</h3>
                   {event.problemStatement && (isProblemReleased || !event.problemReleaseTime) ? (
@@ -247,7 +247,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
                 </div>
 
                 {event.problemReleaseTime && !isProblemReleased ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-gray-400 animate-slide-up">
+                  <div className="flex flex-col items-center justify-center py-6 px-2 sm:p-8 text-center text-gray-400 animate-slide-up">
                     <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 animate-bounce" style={{ animationDuration: '3s' }}>
                       <Lock className="h-6 w-6" />
                     </div>

@@ -14,9 +14,9 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "AAYAM | Annual Technical Festival & Hackathon Arena",
-  description: "Welcome to AAYAM, the ultimate annual technical festival. Participate in fast coding challenges, tech quizzes, UI/UX sprints, and 24-hour hackathons. Register now and win cash prizes!",
-  keywords: ["AAYAM", "Technical Festival", "Fast Coding", "Hackathon Arena", "Tech Quiz", "UI/UX Design", "University Event"],
+  title: "AAYAM 2026 | RKDF University Ranchi TechFest",
+  description: "AAYAM is the official annual technical festival of RKDF University Ranchi featuring hackathons, fast coding competitions, UI/UX design sprints, technical quizzes, workshops, and innovation challenges. Register now to participate and win exciting cash prizes!",
+  keywords: ["AAYAM", "Aayam", "Aayam TechFest", "RKDF University Ranchi", "Aayam RKDF TechFest", "aayam techfest rkdf", "Technical Festival", "Fast Coding", "Hackathon Arena", "Tech Quiz", "UI/UX Design", "University Event"],
 };
 
 export default async function Home() {
