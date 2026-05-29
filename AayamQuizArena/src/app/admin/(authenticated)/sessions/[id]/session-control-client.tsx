@@ -40,6 +40,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   // Socket state
   const [isConnected, setIsConnected] = useState(false);
   const [quizState, setQuizState] = useState<RealtimeQuizState | null>(null);
+  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
 
   // Manual score correction modal states
   const [selectedParticipant, setSelectedParticipant] = useState<any | null>(null);
@@ -61,7 +62,16 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
     });
 
     socket.on("state-sync", (state: RealtimeQuizState) => {
-      setQuizState(state);
+      setQuizState((prevState) => {
+        if (prevState?.activeQuestion?.id !== state.activeQuestion?.id) {
+          setIsAnswerRevealed(false);
+        }
+        return state;
+      });
+    });
+
+    socket.on("reveal-answer", () => {
+      setIsAnswerRevealed(true);
     });
 
     socket.on("error", (err: string) => {
@@ -72,6 +82,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("state-sync");
+      socket.off("reveal-answer");
       socket.off("error");
       socket.disconnect();
     };
@@ -188,6 +199,9 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   };
 
   const activeRound = session.rounds.find((r: any) => r.id === quizState?.currentRoundId) || session.rounds[0];
+  const fullActiveQuestion = quizState?.activeQuestion
+    ? session.quiz.questions.find((q: any) => q.id === quizState.activeQuestion?.id)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -340,14 +354,28 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 {/* Show Choices */}
                 {quizState.activeQuestion.options.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {quizState.activeQuestion.options.map((opt) => (
-                      <div
-                        key={opt.id}
-                        className="bg-white/5 border border-white/5 px-4 py-2 rounded-lg text-sm text-gray-300"
-                      >
-                        {opt.text}
-                      </div>
-                    ))}
+                    {quizState.activeQuestion.options.map((opt) => {
+                      const fullOpt = fullActiveQuestion?.options.find((o: any) => o.id === opt.id);
+                      const isCorrect = fullOpt?.isCorrect;
+
+                      return (
+                        <div
+                          key={opt.id}
+                          className={`flex items-center justify-between border px-4 py-2 rounded-lg text-sm ${
+                            isCorrect
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-semibold"
+                              : "bg-white/5 border-white/5 text-gray-300"
+                          }`}
+                        >
+                          <span>{opt.text}</span>
+                          {isCorrect && (
+                            <span className="text-[9px] uppercase font-bold bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-400">
+                              Correct
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -355,9 +383,14 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5">
                   <button
                     onClick={handleShowAnswer}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
+                    disabled={isAnswerRevealed}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-white transition-all ${
+                      isAnswerRevealed
+                        ? "bg-emerald-600/50 border border-emerald-500/20 text-emerald-300 cursor-not-allowed"
+                        : "bg-indigo-600 hover:bg-indigo-500"
+                    }`}
                   >
-                    Reveal Correct Answer
+                    {isAnswerRevealed ? "Answer Revealed" : "Reveal Correct Answer"}
                   </button>
 
                   {activeRound?.type === "BUZZER" && (

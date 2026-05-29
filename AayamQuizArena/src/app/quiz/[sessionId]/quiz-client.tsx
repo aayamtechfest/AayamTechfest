@@ -31,6 +31,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   const [submittedOptionId, setSubmittedOptionId] = useState<string | null>(null);
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [buzzerRank, setBuzzerRank] = useState<number | null>(null);
+  const [revealedOptionId, setRevealedOptionId] = useState<string | null>(null);
 
   // Time tracking
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -70,6 +71,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
           setSubmittedOptionId(null);
           setHasBuzzed(false);
           setBuzzerRank(null);
+          setRevealedOptionId(null);
         }
         return updatedState;
       });
@@ -103,6 +105,10 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       setBuzzerRank(null);
     });
 
+    socket.on("reveal-answer", ({ correctOptionId }) => {
+      setRevealedOptionId(correctOptionId);
+    });
+
     return () => {
       socket.off("connect");
       socket.off("disconnect");
@@ -110,6 +116,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       socket.off("answer-feedback");
       socket.off("buzzer-hit");
       socket.off("buzzer-reset");
+      socket.off("reveal-answer");
       socket.disconnect();
     };
   }, [session.id, participantId, router]);
@@ -285,23 +292,35 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
               <div className="grid gap-3 sm:grid-cols-2">
                 {state.activeQuestion.options.map((opt, index) => {
                   const isSelected = submittedOptionId === opt.id;
+                  const isCorrectAnswer = revealedOptionId === opt.id;
+                  const showIncorrect = revealedOptionId && isSelected && !isCorrectAnswer;
                   const prefix = String.fromCharCode(65 + index); // A, B, C, D...
 
                   return (
                     <button
                       key={opt.id}
                       onClick={() => handleOptionSelect(opt.id)}
-                      disabled={!!submittedOptionId || timeRemaining <= 0}
+                      disabled={!!submittedOptionId || !!revealedOptionId || timeRemaining <= 0}
                       className={`flex items-center gap-3 w-full border text-left p-4 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                        isSelected
+                        isCorrectAnswer
+                          ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                          : showIncorrect
+                          ? "bg-red-500/20 border-red-500 text-red-400"
+                          : isSelected
                           ? "bg-indigo-600/20 border-indigo-500 text-white"
-                          : submittedOptionId
+                          : submittedOptionId || revealedOptionId
                           ? "bg-white/5 border-white/5 text-gray-500 cursor-not-allowed"
                           : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]"
                       }`}
                     >
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                        isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
+                        isCorrectAnswer
+                          ? "bg-emerald-500 text-white"
+                          : showIncorrect
+                          ? "bg-red-500 text-white"
+                          : isSelected
+                          ? "bg-indigo-500 text-white"
+                          : "bg-white/10 text-gray-400"
                       }`}>
                         {prefix}
                       </span>

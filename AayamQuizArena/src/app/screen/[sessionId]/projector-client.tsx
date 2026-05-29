@@ -12,6 +12,7 @@ interface ProjectorScreenClientProps {
 export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
   const [state, setState] = useState<RealtimeQuizState | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [revealedOptionId, setRevealedOptionId] = useState<string | null>(null);
 
   // Sound effects or flash states
   const [lastBuzzerName, setLastBuzzerName] = useState<string | null>(null);
@@ -25,7 +26,12 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
     });
 
     socket.on("state-sync", (updatedState: RealtimeQuizState) => {
-      setState(updatedState);
+      setState((prevState) => {
+        if (prevState?.activeQuestion?.id !== updatedState.activeQuestion?.id) {
+          setRevealedOptionId(null);
+        }
+        return updatedState;
+      });
     });
 
     socket.on("buzzer-hit", ({ displayName, rank }) => {
@@ -38,10 +44,15 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       }
     });
 
+    socket.on("reveal-answer", ({ correctOptionId }) => {
+      setRevealedOptionId(correctOptionId);
+    });
+
     return () => {
       socket.off("connect");
       socket.off("state-sync");
       socket.off("buzzer-hit");
+      socket.off("reveal-answer");
       socket.disconnect();
     };
   }, [session.id]);
@@ -191,13 +202,24 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
               {state.activeQuestion.options.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2 pt-6">
                   {state.activeQuestion.options.map((opt, idx) => {
+                    const isCorrectAnswer = revealedOptionId === opt.id;
                     const prefix = String.fromCharCode(65 + idx);
                     return (
                       <div
                         key={opt.id}
-                        className="flex items-center gap-3 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-base font-bold text-gray-300"
+                        className={`flex items-center gap-3 border px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 ${
+                          isCorrectAnswer
+                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                            : revealedOptionId
+                            ? "bg-white/5 border-white/5 text-gray-600"
+                            : "bg-white/5 border-white/10 text-gray-300"
+                        }`}
                       >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-sm">
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold ${
+                          isCorrectAnswer
+                            ? "bg-emerald-500 text-white"
+                            : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                        }`}>
                           {prefix}
                         </span>
                         <span className="truncate">{opt.text}</span>
