@@ -119,17 +119,17 @@ export default async function QuizzesListPage() {
                   <ExternalLink className="h-3.5 w-3.5" />
                   View & Edit
                 </Link>
-                <form action={handleDelete} className="inline-flex">
+                <form 
+                  action={handleDelete} 
+                  // @ts-ignore
+                  onsubmit="return confirm('Are you sure you want to delete this quiz? This will delete all associated rounds and sessions.')"
+                  className="inline-flex"
+                >
                   <input type="hidden" name="id" value={quiz.id} />
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center rounded-xl border border-red-500/20 bg-red-500/5 p-2 text-red-400 transition-colors hover:bg-red-500/10 hover:border-red-500/40"
                     title="Delete Quiz"
-                    onClick={(e) => {
-                      if (!confirm("Are you sure you want to delete this quiz? This will delete all associated rounds and sessions.")) {
-                        e.preventDefault();
-                      }
-                    }}
                   >
                     <Trash className="h-4 w-4" />
                   </button>

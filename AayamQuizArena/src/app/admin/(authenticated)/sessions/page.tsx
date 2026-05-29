@@ -170,16 +170,16 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
                       <ExternalLink className="h-3.5 w-3.5" />
                       Live Control
                     </Link>
-                    <form action={handleDelete} className="inline-flex">
+                    <form 
+                      action={handleDelete} 
+                      // @ts-ignore
+                      onsubmit="return confirm('Delete this session, its logs, and and scoring entries?')"
+                      className="inline-flex"
+                    >
                       <input type="hidden" name="id" value={session.id} />
                       <button
                         type="submit"
                         className="inline-flex items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 p-1.5 text-red-400 transition-colors hover:bg-red-500/10 hover:border-red-500/40"
-                        onClick={(e) => {
-                          if (!confirm("Delete this session, its logs, and and scoring entries?")) {
-                            e.preventDefault();
-                          }
-                        }}
                       >
                         <Trash className="h-4 w-4" />
                       </button>
