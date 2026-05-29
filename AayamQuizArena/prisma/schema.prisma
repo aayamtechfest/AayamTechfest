@@ -1,0 +1,512 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ───────────────────────── Admin ─────────────────────────
+model Admin {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String         @default("Admin")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  quizAuditLogs QuizAuditLog[]
+}
+
+// ───────────────────────── Event ─────────────────────────
+model Event {
+  id                   String            @id @default(cuid())
+  slug                 String            @unique
+  name                 String
+  shortDescription     String?
+  description          String            @db.Text
+  rules                String?           @db.Text
+  eligibility          String?           @db.Text
+  format               String?
+  participationType    ParticipationType @default(SOLO)
+  minTeamSize          Int               @default(1)
+  maxTeamSize          Int               @default(1)
+  prizeDetails         String?           @db.Text
+  venue                String?
+  schedule             String?           @db.Text
+  bannerUrl            String?
+  registrationFee      Decimal?          @db.Decimal(10, 2)
+  lastRegistrationDate DateTime?
+  eventDate            DateTime?
+  problemSummary       String?           @db.Text
+  problemStatement     String?           @db.Text
+  problemReleaseTime   DateTime?
+  isPublished          Boolean           @default(false)
+  isRegistrationOpen   Boolean           @default(true)
+  isSubmissionOpen     Boolean           @default(false)
+  sortOrder            Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  winner1Id            String?
+  winner1              Registration?     @relation("Winner1", fields: [winner1Id], references: [id], onDelete: SetNull)
+  winner2Id            String?
+  winner2              Registration?     @relation("Winner2", fields: [winner2Id], references: [id], onDelete: SetNull)
+  winner3Id            String?
+  winner3              Registration?     @relation("Winner3", fields: [winner3Id], references: [id], onDelete: SetNull)
+
+  registrations        Registration[]
+  formFields           FormFieldConfig[]
+  quizzes              Quiz[]
+}
+
+enum ParticipationType {
+  SOLO
+  TEAM
+  BOTH
+}
+
+// ───────────────────── Registration ──────────────────────
+model Registration {
+  id                String             @id @default(cuid())
+  registrationId    String             @unique
+  eventId           String
+  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantName   String
+  email             String
+  phone             String
+  collegeName       String
+  department        String?
+  yearOrSemester    String?
+  teamName          String?
+  teamMembers       TeamMember[]
+  paymentStatus     PaymentStatus      @default(PENDING)
+  paymentReference  String?
+  paymentScreenshot String?
+  paymentAmount     Decimal?           @db.Decimal(10, 2)
+  paymentVerifiedAt DateTime?
+  paymentNotes      String?
+  status            RegistrationStatus @default(SUBMITTED)
+  notes             String?
+  customFields      Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  submission        Submission?
+  winner1Events     Event[]            @relation("Winner1")
+  winner2Events     Event[]            @relation("Winner2")
+  winner3Events     Event[]            @relation("Winner3")
+  quizParticipants  QuizParticipant[]
+
+  @@index([eventId])
+  @@index([email])
+  @@index([paymentStatus])
+  @@index([status])
+}
+
+model TeamMember {
+  id             String       @id @default(cuid())
+  registrationId String
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?
+  phone          String?
+  collegeName    String?
+  department     String?
+  yearOrSemester String?
+  role           String?
+  createdAt      DateTime     @default(now())
+
+  @@index([registrationId])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RegistrationStatus {
+  SUBMITTED
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  CLOSED
+  EXPIRED
+}
+
+// ──────────────── Form Field Configuration ───────────────
+model FormFieldConfig {
+  id          String   @id @default(cuid())
+  eventId     String?
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fieldName   String
+  label       String
+  type        String
+  placeholder String?
+  isRequired  Boolean  @default(false)
+  isVisible   Boolean  @default(true)
+  options     Json?
+  sortOrder   Int      @default(0)
+  section     String   @default("participant")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+// ───────────────────── Site Settings ─────────────────────
+model Settings {
+  id                  String   @id @default(cuid())
+  siteName            String   @default("AAYAM")
+  eventTitle          String   @default("AAYAM - University Event Platform")
+  tagline             String?
+  aboutContent        String?  @db.Text
+  logoUrl             String?
+  headerLogoUrl       String?
+  footerLogoUrl       String?
+  faviconUrl          String?
+  paymentQrCodeUrl    String?
+  paymentInstructions String?  @db.Text
+  contactEmail        String?
+  contactPhone        String?
+  contactAddress      String?  @default("University Campus, Main Road")
+  socialLinks         Json?
+  footerText          String?
+  themeColors         Json?
+  sponsorLogos        Json?
+  countdownDate       DateTime?
+  statParticipants    String?  @default("1000+")
+  statEvents          String?  @default("20+")
+  statColleges        String?  @default("15+")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ───────────────────── Announcements ─────────────────────
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  isPublished Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ──────────────────── Email Templates ────────────────────
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  subject   String
+  body      String   @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────── Uploaded Media ────────────────────
+model UploadedMedia {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  publicId  String
+  type      String
+  category  String
+  size      Int?
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────── Contact Message ────────────────────
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────── Submission ──────────────────────
+model Submission {
+  id              String       @id @default(cuid())
+  registrationId  String       @unique
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  participantName String
+  email           String
+  projectLink     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────
+// ───────────────────── QUIZ MODELS ────────────────────────
+// ──────────────────────────────────────────────────────────
+
+enum QuizMode {
+  SOLO
+  TEAM
+}
+
+enum QuizStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SessionStatus {
+  WAITING
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum RoundType {
+  MCQ
+  BUZZER
+  HAND_RAISE
+  RAPID_FIRE
+  TEAM_ANSWER
+  PASS_TO_MEMBER
+}
+
+enum RoundStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  NUMERIC
+  TEXT
+}
+
+enum BuzzerStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Quiz {
+  id          String         @id @default(cuid())
+  name        String
+  description String?        @db.Text
+  eventId     String?
+  event       Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  mode        QuizMode       @default(SOLO)
+  status      QuizStatus     @default(DRAFT)
+  settings    Json?          // Configurable settings per quiz
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  questions   QuizQuestion[]
+  sessions    QuizSession[]
+
+  @@index([eventId])
+}
+
+model QuizSession {
+  id                  String                    @id @default(cuid())
+  quizId              String
+  quiz                Quiz                      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  name                String
+  accessCode          String                    @unique // 6-character unique lobby joining code
+  status              SessionStatus             @default(WAITING)
+  startedAt           DateTime?
+  endedAt             DateTime?
+  currentRoundId      String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  rounds              QuizRound[]
+  participants        QuizParticipant[]
+  teams               QuizTeam[]
+  answers             QuizAnswer[]
+  buzzerEvents        QuizBuzzerEvent[]
+  scores              QuizScore[]
+  leaderboardSnapshots QuizLeaderboardSnapshot[]
+  auditLogs           QuizAuditLog[]
+
+  @@index([quizId])
+}
+
+model QuizRound {
+  id                   String                    @id @default(cuid())
+  sessionId            String
+  session              QuizSession               @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roundNumber          Int
+  title                String
+  type                 RoundType                 @default(MCQ)
+  status               RoundStatus               @default(PENDING)
+  timeLimit            Int                       @default(30) // seconds per question
+  pointsPerQuestion    Int                       @default(10)
+  settings             Json?                     // Round-specific configuration
+  startedAt            DateTime?
+  endedAt              DateTime?
+  questions            QuizQuestion[]
+  answers              QuizAnswer[]
+  buzzerEvents         QuizBuzzerEvent[]
+  scores               QuizScore[]
+  leaderboardSnapshots QuizLeaderboardSnapshot[]
+
+  @@index([sessionId])
+}
+
+model QuizQuestion {
+  id           String               @id @default(cuid())
+  quizId       String
+  quiz         Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  roundId      String?
+  round        QuizRound?           @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  text         String               @db.Text
+  mediaUrl     String?
+  type         QuestionType         @default(MCQ)
+  timeLimit    Int?                 // Overrides round-level time limit if set
+  points       Int?                 // Overrides round-level points if set
+  sortOrder    Int                  @default(0)
+  explanation  String?              @db.Text
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  options      QuizQuestionOption[]
+  answers      QuizAnswer[]
+  buzzerEvents QuizBuzzerEvent[]
+
+  @@index([quizId])
+  @@index([roundId])
+}
+
+model QuizQuestionOption {
+  id         String       @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean      @default(false)
+  sortOrder  Int          @default(0)
+  answers    QuizAnswer[]
+
+  @@index([questionId])
+}
+
+model QuizParticipant {
+  id             String            @id @default(cuid())
+  sessionId      String
+  session        QuizSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  registrationId String
+  registration   Registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  displayName    String
+  teamId         String?
+  team           QuizTeam?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  isConnected    Boolean           @default(false)
+  joinedAt       DateTime          @default(now())
+  totalScore     Int               @default(0) // cached aggregate score
+  answers        QuizAnswer[]
+  buzzerEvents   QuizBuzzerEvent[]
+  scores         QuizScore[]
+
+  @@index([sessionId])
+  @@index([registrationId])
+  @@index([teamId])
+}
+
+model QuizTeam {
+  id           String            @id @default(cuid())
+  sessionId    String
+  session      QuizSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name         String
+  color        String?           // Hex or Tailwinds color representation
+  totalScore   Int               @default(0) // cached aggregate team score
+  participants QuizParticipant[]
+
+  @@index([sessionId])
+}
+
+model QuizAnswer {
+  id               String             @id @default(cuid())
+  sessionId        String
+  session          QuizSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roundId          String
+  round            QuizRound          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         QuizQuestion       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  participantId    String
+  participant      QuizParticipant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  selectedOptionId String?
+  selectedOption   QuizQuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  textAnswer       String?            // Used for TEXT / NUMERIC questions
+  isCorrect        Boolean            @default(false)
+  pointsAwarded    Int                @default(0)
+  answeredAt       DateTime           @default(now())
+
+  @@index([sessionId])
+  @@index([roundId])
+  @@index([questionId])
+  @@index([participantId])
+  @@index([selectedOptionId])
+}
+
+model QuizBuzzerEvent {
+  id            String          @id @default(cuid())
+  sessionId     String
+  session       QuizSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         QuizRound       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      QuizQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   QuizParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  buzzedAt      DateTime        @default(now()) // server arrival time
+  rank          Int             // Order of buzzer press (e.g. 1st, 2nd...)
+  status        BuzzerStatus    @default(PENDING)
+
+  @@index([sessionId])
+  @@index([roundId])
+  @@index([questionId])
+  @@index([participantId])
+}
+
+model QuizScore {
+  id                 String          @id @default(cuid())
+  sessionId          String
+  session            QuizSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participantId      String
+  participant        QuizParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  roundId            String?
+  round              QuizRound?      @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  points             Int             @default(0)
+  bonusPoints        Int             @default(0)
+  penaltyPoints      Int             @default(0)
+  isManualCorrection Boolean         @default(false)
+  note               String?
+  createdAt          DateTime        @default(now())
+
+  @@index([sessionId])
+  @@index([participantId])
+  @@index([roundId])
+}
+
+model QuizLeaderboardSnapshot {
+  id         String    @id @default(cuid())
+  sessionId  String
+  session    QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roundId    String?
+  round      QuizRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  rankings   Json      // [{participantId, rank, score, delta}]
+  snapshotAt DateTime  @default(now())
+
+  @@index([sessionId])
+  @@index([roundId])
+}
+
+model QuizAuditLog {
+  id        String       @id @default(cuid())
+  sessionId String?
+  session   QuizSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  adminId   String
+  admin     Admin        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action    String
+  details   Json?
+  createdAt DateTime     @default(now())
+
+  @@index([sessionId])
+  @@index([adminId])
+}
