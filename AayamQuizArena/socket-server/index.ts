@@ -1,11 +1,25 @@
 import { Server } from "socket.io";
 import { createServer } from "http";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL environment variable is not set.");
+}
+
+const pool = new Pool({
+  connectionString,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 const httpServer = createServer();
 const io = new Server(httpServer, {
   cors: {

@@ -1,6 +1,7 @@
 import { getSessionById } from "@/actions/session.actions";
 import { SessionControlClient } from "./session-control-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,5 @@ export default async function SessionDetailPage({ params }: SessionDetailPagePro
     notFound();
   }
 
-  return <SessionControlClient session={session} />;
+  return <SessionControlClient session={serializePrisma(session)} />;
 }

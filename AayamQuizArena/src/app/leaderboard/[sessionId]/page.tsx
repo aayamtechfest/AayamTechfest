@@ -1,6 +1,7 @@
 import { getSessionById } from "@/actions/session.actions";
 import { LeaderboardClient } from "./leaderboard-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,5 @@ export default async function LeaderboardPage({ params }: LeaderboardPageProps) 
     notFound();
   }
 
-  return <LeaderboardClient session={session} />;
+  return <LeaderboardClient session={serializePrisma(session)} />;
 }

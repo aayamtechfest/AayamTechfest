@@ -1,6 +1,7 @@
 import { getSessionById } from "@/actions/session.actions";
 import { QuizClient } from "./quiz-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,5 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
     notFound();
   }
 
-  return <QuizClient session={session} participantId={participantId} />;
+  return <QuizClient session={serializePrisma(session)} participantId={participantId} />;
 }

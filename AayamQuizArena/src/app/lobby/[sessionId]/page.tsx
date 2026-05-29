@@ -1,6 +1,7 @@
 import { getSessionById } from "@/actions/session.actions";
 import { LobbyClient } from "./lobby-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,5 @@ export default async function LobbyPage({ params, searchParams }: LobbyPageProps
     notFound();
   }
 
-  return <LobbyClient session={session} participantId={participantId} />;
+  return <LobbyClient session={serializePrisma(session)} participantId={participantId} />;
 }

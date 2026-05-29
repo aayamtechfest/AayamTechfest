@@ -1,6 +1,7 @@
 import { getSessionById } from "@/actions/session.actions";
 import { ProjectorScreenClient } from "./projector-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,5 @@ export default async function ProjectorPage({ params }: ProjectorPageProps) {
     notFound();
   }
 
-  return <ProjectorScreenClient session={session} />;
+  return <ProjectorScreenClient session={serializePrisma(session)} />;
 }

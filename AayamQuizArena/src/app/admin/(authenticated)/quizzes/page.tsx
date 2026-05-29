@@ -4,6 +4,8 @@ import { BookOpen, PlusCircle, Trash, ExternalLink, Calendar, Users } from "luci
 import { deleteQuiz } from "@/actions/quiz.actions";
 import { revalidatePath } from "next/cache";
 
+import { DeleteConfirmForm } from "@/components/shared/delete-confirm-form";
+
 export const dynamic = "force-dynamic";
 
 const quizStatusStyles: Record<string, string> = {
@@ -119,11 +121,9 @@ export default async function QuizzesListPage() {
                   <ExternalLink className="h-3.5 w-3.5" />
                   View & Edit
                 </Link>
-                <form 
+                <DeleteConfirmForm 
                   action={handleDelete} 
-                  // @ts-ignore
-                  onsubmit="return confirm('Are you sure you want to delete this quiz? This will delete all associated rounds and sessions.')"
-                  className="inline-flex"
+                  message="Are you sure you want to delete this quiz? This will delete all associated rounds and sessions."
                 >
                   <input type="hidden" name="id" value={quiz.id} />
                   <button
@@ -133,7 +133,7 @@ export default async function QuizzesListPage() {
                   >
                     <Trash className="h-4 w-4" />
                   </button>
-                </form>
+                </DeleteConfirmForm>
               </div>
             </div>
           ))}

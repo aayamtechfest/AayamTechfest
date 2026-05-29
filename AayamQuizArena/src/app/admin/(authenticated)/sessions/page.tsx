@@ -5,6 +5,8 @@ import { Play, PlusCircle, Trash, ExternalLink, Activity, Users, Key } from "luc
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { DeleteConfirmForm } from "@/components/shared/delete-confirm-form";
+
 export const dynamic = "force-dynamic";
 
 const sessionStatusStyles: Record<string, string> = {
@@ -170,11 +172,9 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
                       <ExternalLink className="h-3.5 w-3.5" />
                       Live Control
                     </Link>
-                    <form 
+                    <DeleteConfirmForm 
                       action={handleDelete} 
-                      // @ts-ignore
-                      onsubmit="return confirm('Delete this session, its logs, and and scoring entries?')"
-                      className="inline-flex"
+                      message="Delete this session, its logs, and and scoring entries?"
                     >
                       <input type="hidden" name="id" value={session.id} />
                       <button
@@ -183,7 +183,7 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
                       >
                         <Trash className="h-4 w-4" />
                       </button>
-                    </form>
+                    </DeleteConfirmForm>
                   </div>
                 </div>
               ))}

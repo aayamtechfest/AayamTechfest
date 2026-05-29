@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Trophy, BookOpen, ExternalLink, ArrowRight, UserCheck } from "lucide-react";
 
+import { AutoSubmitSelect } from "@/components/shared/auto-submit-select";
+
 export const dynamic = "force-dynamic";
 
 interface LeaderboardPageProps {
@@ -45,11 +47,9 @@ export default async function AdminLeaderboardPage({ searchParams }: Leaderboard
           <Trophy className="h-5 w-5 text-indigo-400" />
           <span className="text-sm font-medium text-gray-300">Select Session:</span>
           <form method="GET" className="flex-1 max-w-xs">
-            <select
+            <AutoSubmitSelect
               name="sessionId"
               defaultValue={sessionId || ""}
-              // @ts-ignore - native form submit helper
-              onchange="this.form.submit()"
               className="w-full rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
             >
               <option value="" disabled>-- Select a session --</option>
@@ -58,7 +58,7 @@ export default async function AdminLeaderboardPage({ searchParams }: Leaderboard
                   {s.name} ({s.quiz.name})
                 </option>
               ))}
-            </select>
+            </AutoSubmitSelect>
           </form>
         </div>
 

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { HelpCircle, BookOpen, Clock, Award, ExternalLink, ArrowRight } from "lucide-react";
 
+import { AutoSubmitSelect } from "@/components/shared/auto-submit-select";
+
 export const dynamic = "force-dynamic";
 
 interface QuestionsPageProps {
@@ -46,11 +48,9 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
           <BookOpen className="h-5 w-5 text-indigo-400" />
           <span className="text-sm font-medium text-gray-300">Filter by Quiz:</span>
           <form method="GET" className="flex-1 max-w-xs">
-            <select
+            <AutoSubmitSelect
               name="quizId"
               defaultValue={quizId || ""}
-              // @ts-ignore - native form submit on change helper
-              onchange="this.form.submit()"
               className="w-full rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
             >
               <option value="">All Quizzes</option>
@@ -59,7 +59,7 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
                   {q.name}
                 </option>
               ))}
-            </select>
+            </AutoSubmitSelect>
             {/* Fallback button if JavaScript fails */}
             <noscript>
               <button type="submit" className="ml-2 text-xs bg-indigo-600 px-2 py-1 rounded text-white">Filter</button>

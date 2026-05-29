@@ -2,6 +2,7 @@ import { getQuizById } from "@/actions/quiz.actions";
 import { getEvents } from "@/actions/question.actions";
 import { QuizDetailClient } from "./quiz-detail-client";
 import { notFound } from "next/navigation";
+import { serializePrisma } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,5 +21,5 @@ export default async function QuizDetailPage({ params }: QuizDetailPageProps) {
     notFound();
   }
 
-  return <QuizDetailClient quiz={quiz} events={events} />;
+  return <QuizDetailClient quiz={serializePrisma(quiz)} events={serializePrisma(events)} />;
 }
