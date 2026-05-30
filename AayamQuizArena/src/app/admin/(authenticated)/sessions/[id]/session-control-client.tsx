@@ -304,6 +304,31 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   const activeRound = session.rounds.find((r: any) => r.id === quizState?.currentRoundId) || session.rounds[0];
   const templateRoundId = activeRound?.settings?.templateRoundId;
 
+  // Load round settings into config state when round changes
+  useEffect(() => {
+    if (activeRound) {
+      const settings = activeRound.settings as any;
+      if (activeRound.type === "RAPID_FIRE") {
+        if (settings && typeof settings.totalRoundTime === "number") {
+          setRfTotalTime(settings.totalRoundTime);
+        } else {
+          setRfTotalTime(60);
+        }
+        if (settings && typeof settings.negativeMarking === "boolean") {
+          setRfNegativeMarking(settings.negativeMarking);
+        } else {
+          setRfNegativeMarking(false);
+        }
+      }
+      if (typeof activeRound.timeLimit === "number") {
+        setRfQuestionTime(activeRound.timeLimit);
+      }
+      if (typeof activeRound.pointsPerQuestion === "number") {
+        setRfPoints(activeRound.pointsPerQuestion);
+      }
+    }
+  }, [activeRound]);
+
   // Filter questions that belong to the active round
   const roundQuestions = session.quiz.questions.filter((q: any) => {
     if (templateRoundId && q.templateRoundId !== templateRoundId) {

@@ -82,6 +82,8 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
   const [roundTypeInput, setRoundTypeInput] = useState<any>("MCQ");
   const [roundTimeLimitInput, setRoundTimeLimitInput] = useState(30);
   const [roundPointsInput, setRoundPointsInput] = useState(10);
+  const [roundTotalTimeInput, setRoundTotalTimeInput] = useState(60);
+  const [roundNegativeMarkingInput, setRoundNegativeMarkingInput] = useState(false);
 
   // JSON Import States
   const [showJsonImportModal, setShowJsonImportModal] = useState(false);
@@ -257,6 +259,8 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     setRoundTypeInput("MCQ");
     setRoundTimeLimitInput(30);
     setRoundPointsInput(10);
+    setRoundTotalTimeInput(60);
+    setRoundNegativeMarkingInput(false);
     setShowRoundForm(true);
   };
 
@@ -267,6 +271,9 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     setRoundTypeInput(r.type);
     setRoundTimeLimitInput(r.timeLimit);
     setRoundPointsInput(r.pointsPerQuestion);
+    const settings = r.settings as any;
+    setRoundTotalTimeInput(settings?.totalRoundTime || 60);
+    setRoundNegativeMarkingInput(!!settings?.negativeMarking);
     setShowRoundForm(true);
   };
 
@@ -280,6 +287,10 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
         type: roundTypeInput,
         timeLimit: roundTimeLimitInput,
         pointsPerQuestion: roundPointsInput,
+        settings: roundTypeInput === "RAPID_FIRE" ? {
+          totalRoundTime: roundTotalTimeInput,
+          negativeMarking: roundNegativeMarkingInput,
+        } : {},
       };
 
       if (editingRound) {
@@ -591,7 +602,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                     >
                       <option value="MCQ">Simultaneous Answer</option>
                       <option value="BUZZER">Buzzer Round</option>
-                      <option value="PASS_ROUND">Pass Round</option>
+                      <option value="RAPID_FIRE">Rapid Fire Round</option>
                     </select>
                   </div>
 
@@ -617,6 +628,32 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                     />
                   </div>
                 </div>
+
+                {roundTypeInput === "RAPID_FIRE" && (
+                  <div className="grid gap-6 sm:grid-cols-2 p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-gray-300">Total Round Time (secs)</label>
+                      <input
+                        type="number"
+                        required
+                        value={roundTotalTimeInput}
+                        onChange={(e) => setRoundTotalTimeInput(parseInt(e.target.value) || 60)}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex items-center h-full pt-6">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={roundNegativeMarkingInput}
+                          onChange={(e) => setRoundNegativeMarkingInput(e.target.checked)}
+                          className="rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                        />
+                        Enable Negative Marking (-Points/Q on wrong answer)
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -660,7 +697,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                         Round {r.roundNumber}
                       </span>
                       <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-bold text-gray-400 uppercase">
-                        {r.type === "MCQ" ? "Simultaneous MCQ" : r.type}
+                        {r.type === "MCQ" ? "Simultaneous MCQ" : r.type === "RAPID_FIRE" ? "Rapid Fire Round" : r.type}
                       </span>
                     </div>
                     <h3 className="text-base font-bold text-white leading-relaxed font-heading">

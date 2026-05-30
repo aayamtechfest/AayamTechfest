@@ -157,72 +157,111 @@ export async function importQuestions(
       return { success: false, error: "Invalid JSON format. Expected an array of questions." };
     }
 
-    const count = await prisma.$transaction(async (tx) => {
-      let importedCount = 0;
+    console.log(`Starting bulk import of ${questionsData.length} questions for quiz ${quizId}`);
 
-      for (const item of questionsData) {
-        if (!item.text) continue;
+    // 1. Pre-resolve unique template rounds mentioned in the question import
+    const uniqueRoundsMap = new Map<number, { title: string; type: string; timeLimit: number; points: number }>();
+    for (const item of questionsData) {
+      if (item.roundNumber !== undefined) {
+        const roundNum = parseInt(item.roundNumber) || 1;
+        if (!uniqueRoundsMap.has(roundNum)) {
+          uniqueRoundsMap.set(roundNum, {
+            title: item.roundTitle || `Round ${roundNum}`,
+            type: item.roundType || "MCQ",
+            timeLimit: item.roundTimeLimit !== undefined ? parseInt(item.roundTimeLimit) : 30,
+            points: item.roundPoints !== undefined ? parseInt(item.roundPoints) : 10,
+          });
+        }
+      }
+    }
 
-        // Try to find or create template round if roundNumber is provided
-        let templateRoundId: string | null = null;
-        if (item.roundNumber !== undefined) {
-          const roundNum = parseInt(item.roundNumber) || 1;
-          const roundTitle = item.roundTitle || `Round ${roundNum}`;
-          const roundType = item.roundType || "MCQ";
+    // 2. Fetch existing template rounds for this quiz
+    const existingRounds = await prisma.quizTemplateRound.findMany({
+      where: { quizId },
+    });
+    const roundIdMap = new Map<number, string>();
+    for (const r of existingRounds) {
+      roundIdMap.set(r.roundNumber, r.id);
+    }
 
-          let tr = await tx.quizTemplateRound.findFirst({
-            where: { quizId, roundNumber: roundNum },
+    // 3. Create missing template rounds upfront (outside the main question insert loops)
+    for (const [roundNum, info] of uniqueRoundsMap.entries()) {
+      if (!roundIdMap.has(roundNum)) {
+        const rawType = info.type ? info.type.toUpperCase() : "MCQ";
+        const validTypes = ["MCQ", "BUZZER", "HAND_RAISE", "RAPID_FIRE", "TEAM_ANSWER", "PASS_TO_MEMBER", "PASS_ROUND"];
+        const roundType = validTypes.includes(rawType) ? rawType : "MCQ";
+
+        try {
+          const newRound = await prisma.quizTemplateRound.create({
+            data: {
+              quizId,
+              roundNumber: roundNum,
+              title: info.title,
+              type: roundType as any,
+              timeLimit: info.timeLimit,
+              pointsPerQuestion: info.points,
+            },
+          });
+          roundIdMap.set(roundNum, newRound.id);
+          console.log(`Created template round ${roundNum} (ID: ${newRound.id}) for import`);
+        } catch (err) {
+          console.error(`Failed to create template round ${roundNum}:`, err);
+          throw new Error(`Failed to initialize template round ${roundNum} for import`);
+        }
+      }
+    }
+
+    // 4. Batch process question insertions in chunks of 25
+    let importedCount = 0;
+    const batchSize = 25;
+
+    for (let i = 0; i < questionsData.length; i += batchSize) {
+      const batch = questionsData.slice(i, i + batchSize);
+
+      await prisma.$transaction(async (tx) => {
+        for (const item of batch) {
+          if (!item.text) continue;
+
+          const roundNum = item.roundNumber !== undefined ? parseInt(item.roundNumber) : null;
+          const templateRoundId = roundNum !== null ? roundIdMap.get(roundNum) || null : null;
+
+          // Create the question
+          const q = await tx.quizQuestion.create({
+            data: {
+              quizId,
+              templateRoundId,
+              text: item.text,
+              type: item.type || "MCQ",
+              mediaUrl: item.mediaUrl || null,
+              timeLimit: item.timeLimit !== undefined ? parseInt(item.timeLimit) : 30,
+              points: item.points !== undefined ? parseInt(item.points) : 10,
+              explanation: item.explanation || null,
+            },
           });
 
-          if (!tr) {
-            tr = await tx.quizTemplateRound.create({
-              data: {
-                quizId,
-                roundNumber: roundNum,
-                title: roundTitle,
-                type: roundType,
-                timeLimit: item.roundTimeLimit !== undefined ? parseInt(item.roundTimeLimit) : 30,
-                pointsPerQuestion: item.roundPoints !== undefined ? parseInt(item.roundPoints) : 10,
-              },
+          // Add options if any
+          if (Array.isArray(item.options) && item.options.length > 0) {
+            await tx.quizQuestionOption.createMany({
+              data: item.options.map((opt: any, index: number) => ({
+                questionId: q.id,
+                text: opt.text,
+                isCorrect: opt.isCorrect === true || opt.isCorrect === "true",
+                sortOrder: opt.sortOrder !== undefined ? parseInt(opt.sortOrder) : index,
+              })),
             });
           }
-          templateRoundId = tr.id;
+
+          importedCount++;
         }
+      }, {
+        timeout: 15000, // 15s timeout per batch transaction
+      });
 
-        // Create the question
-        const q = await tx.quizQuestion.create({
-          data: {
-            quizId,
-            templateRoundId,
-            text: item.text,
-            type: item.type || "MCQ",
-            mediaUrl: item.mediaUrl || null,
-            timeLimit: item.timeLimit !== undefined ? parseInt(item.timeLimit) : 30,
-            points: item.points !== undefined ? parseInt(item.points) : 10,
-            explanation: item.explanation || null,
-          },
-        });
-
-        // Add options if any
-        if (Array.isArray(item.options) && item.options.length > 0) {
-          await tx.quizQuestionOption.createMany({
-            data: item.options.map((opt: any, index: number) => ({
-              questionId: q.id,
-              text: opt.text,
-              isCorrect: opt.isCorrect === true || opt.isCorrect === "true",
-              sortOrder: opt.sortOrder !== undefined ? parseInt(opt.sortOrder) : index,
-            })),
-          });
-        }
-
-        importedCount++;
-      }
-
-      return importedCount;
-    });
+      console.log(`Successfully imported batch ${Math.floor(i / batchSize) + 1}. Total imported questions: ${importedCount}`);
+    }
 
     revalidatePath(`/admin/quizzes/${quizId}`);
-    return { success: true, data: { count } };
+    return { success: true, data: { count: importedCount } };
   } catch (error: any) {
     console.error("Failed to import questions:", error);
     return { success: false, error: error.message || "Failed to import questions" };
