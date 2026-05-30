@@ -117,6 +117,7 @@ export async function deleteEvent(id: string): Promise<ActionResponse> {
       if (publicId) {
         try {
           await deleteFromCloudinary(publicId);
+          await prisma.uploadedMedia.deleteMany({ where: { publicId } });
         } catch (cloudinaryError) {
           console.error(`Failed to delete Cloudinary banner for event ${id}:`, cloudinaryError);
         }

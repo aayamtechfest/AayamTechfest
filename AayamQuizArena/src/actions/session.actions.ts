@@ -26,8 +26,9 @@ export async function getSessions(): Promise<QuizSessionWithDetails[]> {
 
 export async function getSessionById(id: string): Promise<any | null> {
   try {
+    const isCode = id.length <= 12 && !id.includes("-");
     return await prisma.quizSession.findUnique({
-      where: { id },
+      where: isCode ? { accessCode: id.toUpperCase() } : { id },
       include: {
         quiz: {
           include: {
@@ -36,6 +37,13 @@ export async function getSessionById(id: string): Promise<any | null> {
               include: {
                 options: {
                   orderBy: { sortOrder: "asc" },
+                },
+                usages: {
+                  where: {
+                    session: {
+                      status: "COMPLETED",
+                    },
+                  },
                 },
               },
             },

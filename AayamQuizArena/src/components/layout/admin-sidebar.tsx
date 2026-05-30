@@ -28,7 +28,8 @@ const navItems = [
   { label: "Question Bank", href: "/admin/questions", icon: HelpCircle },
   { label: "Live Sessions", href: "/admin/sessions", icon: Play },
   { label: "Platform Settings", href: "/admin/settings", icon: Settings },
-  { label: "Back to Public Site", href: "/", icon: Globe },
+  { label: "Main Admin Panel", href: "/admin/sso-redirect", icon: LayoutDashboard },
+  { label: "Back to Main Site", href: process.env.NEXT_PUBLIC_AAYAM_URL || "http://localhost:3000", icon: Globe, isExternal: true },
 ];
 
 export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
@@ -36,7 +37,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   function isActive(href: string) {
-    if (href === "/") return false; // "Back to Public Site" shouldn't show active on sub-pages
+    if (href === "/") return false;
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
   }
@@ -71,26 +72,41 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
           const active = isActive(item.href);
+          const classes = cn(
+            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            active
+              ? "bg-indigo-600/15 text-indigo-400 shadow-sm shadow-indigo-500/10"
+              : "text-gray-400 hover:bg-white/5 hover:text-white"
+          );
+          const iconClasses = cn(
+            "h-5 w-5 shrink-0 transition-colors",
+            active
+              ? "text-indigo-400"
+              : "text-gray-500 group-hover:text-gray-300"
+          );
+
+          if ((item as any).isExternal) {
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileOpen(false)}
+                className={classes}
+              >
+                <item.icon className={iconClasses} />
+                {item.label}
+              </a>
+            );
+          }
+
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setIsMobileOpen(false)}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                active
-                  ? "bg-indigo-600/15 text-indigo-400 shadow-sm shadow-indigo-500/10"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white"
-              )}
+              className={classes}
             >
-              <item.icon
-                className={cn(
-                  "h-5 w-5 shrink-0 transition-colors",
-                  active
-                    ? "text-indigo-400"
-                    : "text-gray-500 group-hover:text-gray-300"
-                )}
-              />
+              <item.icon className={iconClasses} />
               {item.label}
               {active && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400" />

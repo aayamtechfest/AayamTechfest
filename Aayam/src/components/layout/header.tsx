@@ -10,6 +10,7 @@ const navLinks = [
   { href: "/events", label: "Events" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact Us" },
+  { href: process.env.NEXT_PUBLIC_QUIZ_ARENA_URL || "http://localhost:3002", label: "Quiz Arena", isExternal: true },
 ];
 
 export function Header() {

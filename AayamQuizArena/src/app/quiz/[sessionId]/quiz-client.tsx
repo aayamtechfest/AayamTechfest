@@ -34,7 +34,12 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   const [submittedOptionId, setSubmittedOptionId] = useState<string | null>(null);
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [buzzerRank, setBuzzerRank] = useState<number | null>(null);
-  const [revealedOptionId, setRevealedOptionId] = useState<string | null>(null);
+  const [revealState, setRevealState] = useState<{
+    isCorrect: boolean;
+    hasSubmitted: boolean;
+    selectedOptionId: string | null;
+  } | null>(null);
+  const [buzzerCountdown, setBuzzerCountdown] = useState<number | null>(null);
 
   // Time tracking
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -73,7 +78,8 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
           setSubmittedOptionId(null);
           setHasBuzzed(false);
           setBuzzerRank(null);
-          setRevealedOptionId(null);
+          setRevealState(null);
+          setBuzzerCountdown(null);
         }
         return updatedState;
       });
@@ -88,7 +94,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
 
     socket.on("answer-feedback", (res: { success: boolean; isCorrect?: boolean; error?: string }) => {
       if (res.success) {
-        toast.success(res.isCorrect ? "Correct answer! Nice job!" : "Answer logged.");
+        toast.success("Answer logged.");
       } else {
         toast.error(res.error || "Failed to log answer.");
       }
@@ -106,8 +112,12 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       setBuzzerRank(null);
     });
 
-    socket.on("reveal-answer", ({ correctOptionId }) => {
-      setRevealedOptionId(correctOptionId);
+    socket.on("reveal-answer", ({ isCorrect, hasSubmitted, selectedOptionId }) => {
+      setRevealState({ isCorrect, hasSubmitted, selectedOptionId });
+    });
+
+    socket.on("buzzer-countdown", ({ count }) => {
+      setBuzzerCountdown(count > 0 ? count : null);
     });
 
     return () => {
@@ -118,6 +128,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       socket.off("buzzer-hit");
       socket.off("buzzer-reset");
       socket.off("reveal-answer");
+      socket.off("buzzer-countdown");
       socket.disconnect();
     };
   }, [session.id, participantId, router]);
@@ -149,7 +160,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   }, [state?.questionEndsAt]);
 
   const handleOptionSelect = (optionId: string) => {
-    if (submittedOptionId || timeRemaining <= 0) return;
+    if (timeRemaining <= 0 || revealState) return;
     
     setSubmittedOptionId(optionId);
     
@@ -162,25 +173,33 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   };
 
   const handleBuzzerPress = () => {
-    if (hasBuzzed || !state?.buzzerOpen) return;
+    if (hasBuzzed || !state?.buzzerOpen || buzzerCountdown !== null) return;
     setHasBuzzed(true);
     getSocket().emit("buzzer-pressed", {
       sessionId: session.id,
       participantId,
     });
   };
+  if (!state) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#0f0f23] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-4" />
+        <p className="text-sm text-gray-400">Connecting to live quiz session...</p>
+      </div>
+    );
+  }
 
-  const currentPlayer = state?.participants.find((p) => p.id === participantId);
-  const currentTeam = state?.teams.find((t) => t.id === currentPlayer?.teamId);
+  const currentPlayer = state.participants.find((p) => p.id === participantId);
+  const currentTeam = state.teams.find((t) => t.id === currentPlayer?.teamId);
 
   // Active check for Rapid Fire
-  const isRapidFireActiveTurn = state?.currentRoundType === "RAPID_FIRE" && 
+  const isRapidFireActiveTurn = state.currentRoundType === "RAPID_FIRE" && 
     state.rapidFireState && 
     (state.rapidFireState.activeParticipantId === participantId || 
      (currentPlayer?.teamId && state.rapidFireState.activeTeamId === currentPlayer.teamId));
 
   // Active check for Pass Round
-  const isPassRoundActiveTurn = state?.currentRoundType === "PASS_ROUND" &&
+  const isPassRoundActiveTurn = state.currentRoundType === "PASS_ROUND" &&
     state.passRoundState &&
     (state.passRoundState.activeParticipantId === participantId ||
      (currentPlayer?.teamId && state.passRoundState.activeTeamId === currentPlayer.teamId));
@@ -241,30 +260,69 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
           </div>
         ) : state?.currentRoundType === "RAPID_FIRE" ? (
           /* ─────────── RAPID FIRE ROUND UI ─────────── */
-          <div className="space-y-6 text-center">
+          <div className="space-y-6">
             {isRapidFireActiveTurn ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-8 space-y-6 backdrop-blur-xl animate-pulse-glow">
-                <Flame className="mx-auto h-16 w-16 text-amber-500 animate-bounce" />
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-black text-white uppercase font-heading">YOUR RAPID FIRE!</h1>
-                  <p className="text-sm text-gray-300">
-                    Listen to the host and answer verbally as fast as possible!
-                  </p>
-                </div>
-                
-                <div className="flex justify-center gap-6">
-                  <div className="bg-black/30 border border-white/10 rounded-xl px-5 py-3">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Remaining</span>
-                    <span className="text-3xl font-mono font-black text-red-400">{state.rapidFireState?.timeLeft || 60}s</span>
-                  </div>
-                  <div className="bg-black/30 border border-white/10 rounded-xl px-5 py-3">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Question</span>
-                    <span className="text-3xl font-mono font-black text-indigo-400">#{ (state.rapidFireState?.questionIndex || 0) + 1 }</span>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-6 backdrop-blur-xl animate-pulse-glow text-left">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <span className="text-xs uppercase font-extrabold text-amber-400 tracking-wider flex items-center gap-1.5 animate-pulse">
+                    <Flame className="h-4.5 w-4.5 text-amber-500" />
+                    YOUR RAPID FIRE TURN!
+                  </span>
+                  <div className="flex gap-2">
+                    <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-red-400 border border-red-500/20">
+                      Round: {state.rapidFireState?.timeLeft}s
+                    </span>
+                    <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-indigo-400 border border-indigo-500/20">
+                      Q Limit: {state.rapidFireState?.questionTimeLeft}s
+                    </span>
                   </div>
                 </div>
+
+                {state.activeQuestion ? (
+                  <div className="space-y-4">
+                    <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                      Question #{(state.rapidFireState?.questionIndex || 0) + 1}
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed font-heading">
+                      {state.activeQuestion.text}
+                    </h2>
+
+                    {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2 pt-2">
+                        {state.activeQuestion.options.map((opt, idx) => {
+                          const isSelected = submittedOptionId === opt.id;
+                          const prefix = String.fromCharCode(65 + idx);
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => handleOptionSelect(opt.id)}
+                              disabled={!!submittedOptionId}
+                              className={`flex items-center gap-3 w-full border text-left p-3.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                                isSelected
+                                  ? "bg-indigo-600/20 border-indigo-500 text-white font-bold"
+                                  : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]"
+                              }`}
+                            >
+                              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
+                                isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
+                              }`}>
+                                {prefix}
+                              </span>
+                              <span className="truncate">{opt.text}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-xs text-gray-500 italic">
+                    Waiting for rapid fire questions to start...
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-8 space-y-4 backdrop-blur-xl">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-4 backdrop-blur-xl">
                 <Clock className="mx-auto h-12 w-12 text-gray-600 animate-pulse" />
                 <h2 className="text-xl font-bold text-white font-heading">Spectating Rapid Fire</h2>
                 <p className="text-sm text-gray-400">
@@ -276,8 +334,8 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
               </div>
             )}
           </div>
-        ) : state?.currentRoundType === "PASS_ROUND" ? (
-          /* ─────────── PASS ROUND UI ─────────── */
+        ) : state?.currentRoundType !== "MCQ" && state?.currentRoundType !== "BUZZER" ? (
+          /* ─────────── TURN / PASS ROUND UI ─────────── */
           <div className="space-y-6">
             {isPassRoundActiveTurn ? (
               <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-8 text-center space-y-6 backdrop-blur-xl shadow-lg shadow-yellow-500/10">
@@ -303,7 +361,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
             ) : (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-4 backdrop-blur-xl">
                 <Shield className="mx-auto h-12 w-12 text-gray-600" />
-                <h2 className="text-xl font-bold text-white font-heading">Spectating Pass Round</h2>
+                <h2 className="text-xl font-bold text-white font-heading">Spectating Turn</h2>
                 <p className="text-sm text-gray-400">
                   Turn Team: <span className="text-indigo-400 font-bold">{state.passRoundState?.activeTeamId ? state.teams.find(t => t.id === state.passRoundState?.activeTeamId)?.name : "Waiting..."}</span>
                 </p>
@@ -389,36 +447,43 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
               <div className="grid gap-3 sm:grid-cols-2">
                 {state.activeQuestion.options.map((opt, index) => {
                   const isSelected = submittedOptionId === opt.id;
-                  const isCorrectAnswer = revealedOptionId === opt.id;
-                  const showIncorrect = revealedOptionId && isSelected && !isCorrectAnswer;
+                  const isRevealed = revealState !== null;
+                  const wasSelectedAtReveal = isRevealed && revealState.selectedOptionId === opt.id;
+                  
+                  let optionStyle = "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]";
+                  let badgeStyle = "bg-white/10 text-gray-400";
+                  
+                  if (isRevealed) {
+                    if (wasSelectedAtReveal) {
+                      if (revealState.isCorrect) {
+                        optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
+                        badgeStyle = "bg-emerald-500 text-white";
+                      } else {
+                        optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
+                        badgeStyle = "bg-red-500 text-white";
+                      }
+                    } else {
+                      optionStyle = "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed";
+                      badgeStyle = "bg-white/5 text-gray-600";
+                    }
+                  } else if (isSelected) {
+                    optionStyle = "bg-indigo-600/20 border-indigo-500 text-white font-bold";
+                    badgeStyle = "bg-indigo-500 text-white";
+                  } else if (timeRemaining <= 0) {
+                    optionStyle = "bg-white/5 border-white/5 text-gray-500 cursor-not-allowed";
+                    badgeStyle = "bg-white/5 text-gray-500";
+                  }
+
                   const prefix = String.fromCharCode(65 + index); // A, B, C, D...
 
                   return (
                     <button
                       key={opt.id}
                       onClick={() => handleOptionSelect(opt.id)}
-                      disabled={!!submittedOptionId || !!revealedOptionId || timeRemaining <= 0}
-                      className={`flex items-center gap-3 w-full border text-left p-4 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                        isCorrectAnswer
-                          ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
-                          : showIncorrect
-                          ? "bg-red-500/20 border-red-500 text-red-400"
-                          : isSelected
-                          ? "bg-indigo-600/20 border-indigo-500 text-white"
-                          : submittedOptionId || revealedOptionId
-                          ? "bg-white/5 border-white/5 text-gray-500 cursor-not-allowed"
-                          : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]"
-                      }`}
+                      disabled={isRevealed || timeRemaining <= 0}
+                      className={`flex items-center gap-3 w-full border text-left p-4 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${optionStyle}`}
                     >
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                        isCorrectAnswer
-                          ? "bg-emerald-500 text-white"
-                          : showIncorrect
-                          ? "bg-red-500 text-white"
-                          : isSelected
-                          ? "bg-indigo-500 text-white"
-                          : "bg-white/10 text-gray-400"
-                      }`}>
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${badgeStyle}`}>
                         {prefix}
                       </span>
                       <span className="truncate">{opt.text}</span>
@@ -438,6 +503,20 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
           </div>
         )}
       </main>
+      {/* Buzzer countdown overlay */}
+      {buzzerCountdown !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in px-4">
+          <div className="text-center space-y-4">
+            <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">Get Ready to Buzz!</span>
+            <div className="text-8xl font-black font-heading text-white animate-ping">
+              {buzzerCountdown}
+            </div>
+            <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider block mt-2">
+              Buzzer button unlocks in {buzzerCountdown}s
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

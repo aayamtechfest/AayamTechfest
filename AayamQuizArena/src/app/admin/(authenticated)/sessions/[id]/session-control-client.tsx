@@ -55,6 +55,15 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>("");
 
+  // Show used questions checkbox state
+  const [showUsedQuestions, setShowUsedQuestions] = useState(false);
+
+  // Rapid Fire config state
+  const [rfTotalTime, setRfTotalTime] = useState(60);
+  const [rfQuestionTime, setRfQuestionTime] = useState(10);
+  const [rfPoints, setRfPoints] = useState(10);
+  const [rfNegativeMarking, setRfNegativeMarking] = useState(false);
+
   useEffect(() => {
     const socket = getSocket();
     socket.connect();
@@ -208,6 +217,12 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       sessionId: session.id,
       teamId: selectedTeamId,
       participantId: selectedParticipantId,
+      config: {
+        totalRoundTime: rfTotalTime,
+        questionTimeLimit: rfQuestionTime,
+        pointsPerQuestion: rfPoints,
+        negativeMarking: rfNegativeMarking,
+      }
     });
     toast.success("Rapid Fire team configured!");
   };
@@ -291,8 +306,11 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
   // Filter questions that belong to the active round
   const roundQuestions = session.quiz.questions.filter((q: any) => {
-    if (templateRoundId) {
-      return q.templateRoundId === templateRoundId;
+    if (templateRoundId && q.templateRoundId !== templateRoundId) {
+      return false;
+    }
+    if (!showUsedQuestions && q.usages && q.usages.length > 0) {
+      return false;
     }
     return true;
   });
@@ -331,12 +349,12 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
         {/* Live Screens CTAs */}
         <div className="flex items-center gap-3">
           <Link
-            href={`/screen/${session.id}`}
+            href={`/screen/${session.accessCode}`}
             target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2 text-xs font-semibold text-indigo-300 transition-colors hover:bg-indigo-600 hover:text-white"
           >
             <Tv className="h-4 w-4 text-indigo-400" />
-            Auditorium Projector
+            Auditorium Projector (/screen/{session.accessCode})
           </Link>
           <Link
             href={`/leaderboard/${session.id}`}
@@ -353,7 +371,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className="bg-black/20 border border-white/5 p-2 rounded-xl text-center">
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold block">Lobby Code</span>
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold block">Lobby/Projection Code</span>
             <span className="text-lg font-mono font-bold text-indigo-400 tracking-wider block px-2 mt-0.5">
               {session.accessCode}
             </span>
@@ -590,11 +608,11 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   </div>
                 )}
 
-                {/* Pass Round Controller */}
-                {activeRound?.type === "PASS_ROUND" && (
+                {/* Standardized Turn / Pass Controller */}
+                {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && (
                   <div className="space-y-4 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-400 uppercase">Pass Round Turn</span>
+                      <span className="text-xs font-bold text-gray-400 uppercase">Question Turn Controls</span>
                       <span className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded">
                         Active Turn: {quizState.passRoundState?.activeTeamId ? quizState.teams.find(t => t.id === quizState.passRoundState?.activeTeamId)?.name : "None"} 
                         {quizState.passRoundState?.passCount && quizState.passRoundState.passCount > 0 ? ` (Passed x${quizState.passRoundState.passCount})` : ""}
@@ -624,6 +642,30 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                         Pass Turn
                       </button>
                     </div>
+
+                    {/* Set turn if not set */}
+                    {(!quizState.passRoundState || !quizState.passRoundState.activeTeamId) && (
+                      <div className="flex flex-col gap-2 sm:flex-row mt-2">
+                        <select
+                          value={selectedTeamId}
+                          onChange={(e) => setSelectedTeamId(e.target.value)}
+                          className="flex-1 rounded-lg border border-white/10 bg-[#121225] px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+                        >
+                          <option value="">-- Set Active Turn Team --</option>
+                          {quizState?.teams.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleSetPassRoundTeam}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-1.5 px-3 rounded-lg text-xs"
+                        >
+                          Set Turn
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -647,6 +689,50 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                     Timer: {quizState?.rapidFireState?.timeLeft || 60}s
                   </span>
                 </div>
+
+                {/* Rapid Fire Configuration Inputs */}
+                {(!quizState?.rapidFireState || !quizState.rapidFireState.isRunning) && (
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                    <div>
+                      <label className="text-[10px] text-gray-500 uppercase block mb-1">Total Time (s)</label>
+                      <input
+                        type="number"
+                        value={rfTotalTime}
+                        onChange={(e) => setRfTotalTime(Number(e.target.value))}
+                        className="w-full rounded-lg border border-white/10 bg-[#121225] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 uppercase block mb-1">Q Limit (s)</label>
+                      <input
+                        type="number"
+                        value={rfQuestionTime}
+                        onChange={(e) => setRfQuestionTime(Number(e.target.value))}
+                        className="w-full rounded-lg border border-white/10 bg-[#121225] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 uppercase block mb-1">Points/Q</label>
+                      <input
+                        type="number"
+                        value={rfPoints}
+                        onChange={(e) => setRfPoints(Number(e.target.value))}
+                        className="w-full rounded-lg border border-white/10 bg-[#121225] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-end pb-1">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={rfNegativeMarking}
+                          onChange={(e) => setRfNegativeMarking(e.target.checked)}
+                          className="rounded border-white/10 bg-[#121225] text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                        />
+                        Negative Mark
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 {/* Team selection */}
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -689,15 +775,33 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                     <p className="text-gray-500">
                       Currently at Question #{quizState.rapidFireState.questionIndex + 1}
                     </p>
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      <div className="bg-white/5 border border-white/5 p-2 rounded-lg text-center">
+                        <span className="text-[9px] text-gray-500 uppercase block">Attempted</span>
+                        <span className="text-sm font-bold text-white">{quizState.rapidFireState.stats?.attempted || 0}</span>
+                      </div>
+                      <div className="bg-emerald-500/10 border border-emerald-500/10 p-2 rounded-lg text-center">
+                        <span className="text-[9px] text-emerald-500/50 uppercase block">Correct</span>
+                        <span className="text-sm font-bold text-emerald-400">{quizState.rapidFireState.stats?.correct || 0}</span>
+                      </div>
+                      <div className="bg-red-500/10 border border-red-500/10 p-2 rounded-lg text-center">
+                        <span className="text-[9px] text-red-500/50 uppercase block">Wrong</span>
+                        <span className="text-sm font-bold text-red-400">{quizState.rapidFireState.stats?.wrong || 0}</span>
+                      </div>
+                      <div className="bg-indigo-500/10 border border-indigo-500/10 p-2 rounded-lg text-center">
+                        <span className="text-[9px] text-indigo-500/50 uppercase block">Score</span>
+                        <span className="text-sm font-bold text-indigo-400">{quizState.rapidFireState.stats?.score || 0}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Pass Round Configuration */}
-            {activeRound?.type === "PASS_ROUND" && !quizState?.activeQuestion && (
+            {/* Turn Setup for non-MCQ / non-Rapid Fire rounds when no active question */}
+            {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && !quizState?.activeQuestion && (
               <div className="bg-black/35 p-5 border border-white/5 rounded-xl space-y-3">
-                <h3 className="text-sm font-bold text-gray-300">Pass Round Configuration</h3>
+                <h3 className="text-sm font-bold text-gray-300">Active Turn Setup</h3>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <select
                     value={selectedTeamId}
@@ -724,7 +828,18 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
             {/* Round Questions list */}
             <div className="space-y-3 pt-4 border-t border-white/5">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Round Question Pool:</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Round Question Pool:</h3>
+                <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showUsedQuestions}
+                    onChange={(e) => setShowUsedQuestions(e.target.checked)}
+                    className="rounded border-white/10 bg-[#121225] text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                  />
+                  Show Used Questions
+                </label>
+              </div>
               <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
                 {roundQuestions.map((q: any, idx: number) => {
                   const isCurrent = quizState?.activeQuestion?.id === q.id;

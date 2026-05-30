@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { deleteFromCloudinary } from "@/lib/cloudinary";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse } from "@/types";
+import { getPublicIdFromUrl } from "@/lib/utils";
 
 export async function resetSystemAction(confirmationText: string): Promise<ActionResponse> {
   try {
@@ -14,8 +15,63 @@ export async function resetSystemAction(confirmationText: string): Promise<Actio
 
     console.log("Starting full system reset...");
 
-    // 1. Delete and clean Cloudinary assets via UploadedMedia records
+    // 1. Delete and clean Cloudinary assets
     try {
+      // Clean event banners
+      const events = await prisma.event.findMany({ select: { bannerUrl: true } });
+      for (const event of events) {
+        if (event.bannerUrl && event.bannerUrl.includes("res.cloudinary.com")) {
+          const publicId = getPublicIdFromUrl(event.bannerUrl);
+          if (publicId) {
+            try {
+              await deleteFromCloudinary(publicId);
+            } catch (e) {
+              console.error(`Failed to delete event banner from Cloudinary during reset:`, e);
+            }
+          }
+        }
+      }
+
+      // Clean registration payment screenshots
+      const registrations = await prisma.registration.findMany({ select: { paymentScreenshot: true } });
+      for (const reg of registrations) {
+        if (reg.paymentScreenshot && reg.paymentScreenshot.includes("res.cloudinary.com")) {
+          const publicId = getPublicIdFromUrl(reg.paymentScreenshot);
+          if (publicId) {
+            try {
+              await deleteFromCloudinary(publicId);
+            } catch (e) {
+              console.error(`Failed to delete registration screenshot from Cloudinary during reset:`, e);
+            }
+          }
+        }
+      }
+
+      // Clean custom settings images
+      const currentSettings = await prisma.settings.findFirst();
+      if (currentSettings) {
+        const urlsToClean = [
+          currentSettings.logoUrl,
+          currentSettings.headerLogoUrl,
+          currentSettings.footerLogoUrl,
+          currentSettings.faviconUrl,
+          currentSettings.paymentQrCodeUrl,
+        ];
+        for (const url of urlsToClean) {
+          if (url && url.includes("res.cloudinary.com")) {
+            const publicId = getPublicIdFromUrl(url);
+            if (publicId) {
+              try {
+                await deleteFromCloudinary(publicId);
+              } catch (e) {
+                console.error(`Failed to delete settings image during reset:`, e);
+              }
+            }
+          }
+        }
+      }
+
+      // Clean media uploaded in the UploadedMedia table
       const mediaList = await prisma.uploadedMedia.findMany();
       console.log(`Found ${mediaList.length} media files to delete from Cloudinary.`);
       
@@ -30,7 +86,7 @@ export async function resetSystemAction(confirmationText: string): Promise<Actio
         }
       }
     } catch (mediaErr) {
-      console.error("Error reading or deleting uploaded media from Cloudinary:", mediaErr);
+      console.error("Error reading or deleting uploaded media from Cloudinary during reset:", mediaErr);
     }
 
     // 2. Clear Database collections

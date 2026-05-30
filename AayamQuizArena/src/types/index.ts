@@ -96,13 +96,27 @@ export interface RealtimeQuizState {
     activeTeamId: string | null;
     activeParticipantId: string | null;
     timeLeft: number;
+    questionTimeLeft: number;
     isRunning: boolean;
     questionIndex: number;
+    config?: {
+      totalRoundTime: number;
+      questionTimeLimit: number;
+      pointsPerQuestion: number;
+      negativeMarking: boolean;
+    };
+    stats?: {
+      attempted: number;
+      correct: number;
+      wrong: number;
+      score: number;
+    };
   };
   passRoundState?: {
     activeTeamId: string | null;
     activeParticipantId: string | null;
     passCount: number;
+    passHistory: string[];
   };
   
   // Active Question Info (null if not running/showing)

@@ -213,6 +213,7 @@ export async function deleteRegistration(id: string): Promise<ActionResponse> {
       if (publicId) {
         try {
           await deleteFromCloudinary(publicId);
+          await prisma.uploadedMedia.deleteMany({ where: { publicId } });
         } catch (cloudinaryError) {
           console.error(`Failed to delete Cloudinary receipt for registration ${id}:`, cloudinaryError);
         }

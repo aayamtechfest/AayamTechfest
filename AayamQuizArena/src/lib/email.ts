@@ -314,7 +314,10 @@ export async function sendSessionLiveEmails(sessionId: string): Promise<void> {
     const registrations = await prisma.registration.findMany({
       where: {
         eventId: session.quiz.eventId,
-        paymentStatus: "APPROVED", // only send to verified/approved registrations
+        OR: [
+          { paymentStatus: "APPROVED" },
+          { status: "APPROVED" },
+        ],
       },
     });
 

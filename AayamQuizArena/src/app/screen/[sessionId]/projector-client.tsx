@@ -13,6 +13,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
   const [state, setState] = useState<RealtimeQuizState | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [revealedOptionId, setRevealedOptionId] = useState<string | null>(null);
+  const [buzzerCountdown, setBuzzerCountdown] = useState<number | null>(null);
 
   // Sound effects or flash states
   const [lastBuzzerName, setLastBuzzerName] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       setState((prevState) => {
         if (prevState?.activeQuestion?.id !== updatedState.activeQuestion?.id) {
           setRevealedOptionId(null);
+          setBuzzerCountdown(null); // Reset countdown on new question
         }
         return updatedState;
       });
@@ -48,11 +50,16 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       setRevealedOptionId(correctOptionId);
     });
 
+    socket.on("buzzer-countdown", ({ count }) => {
+      setBuzzerCountdown(count > 0 ? count : null);
+    });
+
     return () => {
       socket.off("connect");
       socket.off("state-sync");
       socket.off("buzzer-hit");
       socket.off("reveal-answer");
+      socket.off("buzzer-countdown");
       socket.disconnect();
     };
   }, [session.id]);
@@ -270,30 +277,57 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
               {state.activeQuestion.options.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2 pt-6">
                   {state.activeQuestion.options.map((opt, idx) => {
-                    const isCorrectAnswer = revealedOptionId === opt.id;
                     const prefix = String.fromCharCode(65 + idx);
                     return (
                       <div
                         key={opt.id}
-                        className={`flex items-center gap-3 border px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 ${
-                          isCorrectAnswer
-                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
-                            : revealedOptionId
-                            ? "bg-white/5 border-white/5 text-gray-600"
-                            : "bg-white/5 border-white/10 text-gray-300"
-                        }`}
+                        className="flex items-center gap-3 border px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 bg-white/5 border-white/10 text-gray-300"
                       >
-                        <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold ${
-                          isCorrectAnswer
-                            ? "bg-emerald-500 text-white"
-                            : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-                        }`}>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
                           {prefix}
                         </span>
                         <span className="truncate">{opt.text}</span>
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Buzzer Rankings Display */}
+              {state.currentRoundType === "BUZZER" && (
+                <div className="space-y-3 pt-6 border-t border-white/5">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">Buzzer Registration Queue:</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {state.buzzerQueue && state.buzzerQueue.length > 0 ? (
+                      state.buzzerQueue.map((buzzer, idx) => {
+                        const rank = idx + 1;
+                        return (
+                          <div
+                            key={buzzer.id}
+                            className={`flex items-center justify-between p-3.5 border rounded-2xl text-sm font-bold ${
+                              buzzer.status === "ACCEPTED"
+                                ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                                : buzzer.status === "REJECTED"
+                                ? "bg-red-500/20 border-red-500 text-red-400"
+                                : "bg-white/5 border-white/10 text-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-xs font-mono">
+                                #{rank}
+                              </span>
+                              <span>{buzzer.displayName}</span>
+                            </div>
+                            <span className="text-xs font-mono text-gray-500 uppercase">{buzzer.status}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-2 text-center py-6 border border-dashed border-white/5 rounded-2xl text-xs text-gray-500">
+                        Wait for contestants to buzz...
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -362,10 +396,24 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                   Lobby is empty. Connect players to start scoring.
                 </div>
               )}
-            </div>
           </div>
         </div>
       </div>
+    </div>
+      {/* Buzzer Countdown Overlay */}
+      {buzzerCountdown !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="text-center space-y-4">
+            <span className="text-sm font-bold uppercase tracking-widest text-indigo-400">Get Ready to Buzz!</span>
+            <div className="text-9xl font-black font-heading text-white animate-ping">
+              {buzzerCountdown}
+            </div>
+            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider block mt-4">
+              Buzzers open in {buzzerCountdown}s
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
