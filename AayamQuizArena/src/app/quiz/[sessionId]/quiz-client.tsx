@@ -45,12 +45,14 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
 
   // Participant specific inputs
   const [submittedOptionId, setSubmittedOptionId] = useState<string | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [hasBuzzed, setHasBuzzed] = useState(false);
   const [buzzerRank, setBuzzerRank] = useState<number | null>(null);
   const [revealState, setRevealState] = useState<{
     isCorrect: boolean;
     hasSubmitted: boolean;
     selectedOptionId: string | null;
+    correctOptionId?: string | null;
   } | null>(null);
   const [buzzerCountdown, setBuzzerCountdown] = useState<number | null>(null);
 
@@ -80,6 +82,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
         // Reset inputs if the question has transitioned
         if (prevState?.activeQuestion?.id !== updatedState.activeQuestion?.id) {
           setSubmittedOptionId(null);
+          setSelectedOptionId(null);
           setHasBuzzed(false);
           setBuzzerRank(null);
           setRevealState(null);
@@ -116,8 +119,8 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       setBuzzerRank(null);
     });
 
-    socket.on("reveal-answer", ({ isCorrect, hasSubmitted, selectedOptionId }) => {
-      setRevealState({ isCorrect, hasSubmitted, selectedOptionId });
+    socket.on("reveal-answer", ({ isCorrect, hasSubmitted, selectedOptionId, correctOptionId }) => {
+      setRevealState({ isCorrect, hasSubmitted, selectedOptionId, correctOptionId });
     });
 
     socket.on("buzzer-countdown", ({ count }) => {
@@ -166,13 +169,31 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   const handleOptionSelect = (optionId: string) => {
     if (timeRemaining <= 0 || revealState) return;
     
-    setSubmittedOptionId(optionId);
-    
+    if (state?.currentRoundType === "RAPID_FIRE") {
+      setSelectedOptionId(optionId);
+      getSocket().emit("rapid-fire:select-option", {
+        sessionId: session.id,
+        selectedOptionId: optionId,
+      });
+    } else {
+      setSubmittedOptionId(optionId);
+      getSocket().emit("submit-answer", {
+        sessionId: session.id,
+        participantId: resolvedPlayerId,
+        questionId: state?.activeQuestion?.id,
+        selectedOptionId: optionId,
+      });
+    }
+  };
+
+  const handleRapidFireSubmit = () => {
+    if (!selectedOptionId || !state?.activeQuestion?.id) return;
+    setSubmittedOptionId(selectedOptionId);
     getSocket().emit("submit-answer", {
       sessionId: session.id,
       participantId: resolvedPlayerId,
-      questionId: state?.activeQuestion?.id,
-      selectedOptionId: optionId,
+      questionId: state.activeQuestion.id,
+      selectedOptionId: selectedOptionId,
     });
   };
 
@@ -292,30 +313,57 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                     </h2>
 
                     {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
-                      <div className="grid gap-3 sm:grid-cols-2 pt-2">
-                        {state.activeQuestion.options.map((opt, idx) => {
-                          const isSelected = submittedOptionId === opt.id;
-                          const prefix = String.fromCharCode(65 + idx);
-                          return (
+                      <div className="space-y-4 pt-2">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {state.activeQuestion.options.map((opt, idx) => {
+                            const isSelected = selectedOptionId === opt.id || submittedOptionId === opt.id;
+                            const prefix = String.fromCharCode(65 + idx);
+                            
+                            const isRevealed = revealState !== null;
+                            const isCorrectOption = isRevealed && revealState.correctOptionId === opt.id;
+                            const wasSelectedAtReveal = isRevealed && revealState.selectedOptionId === opt.id;
+
+                            let optionStyle = isSelected
+                              ? "bg-indigo-600/20 border-indigo-500 text-white font-bold"
+                              : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]";
+
+                            if (isRevealed) {
+                              if (isCorrectOption) {
+                                optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
+                              } else if (wasSelectedAtReveal && !isCorrectOption) {
+                                optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
+                              } else {
+                                optionStyle = "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed";
+                              }
+                            }
+
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => handleOptionSelect(opt.id)}
+                                disabled={!!submittedOptionId || isRevealed}
+                                className={`flex items-center gap-3 w-full border text-left p-3.5 rounded-xl text-xs font-semibold transition-all duration-200 ${optionStyle}`}
+                              >
+                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
+                                  isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
+                                }`}>
+                                  {prefix}
+                                </span>
+                                <span className="truncate">{opt.text}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {selectedOptionId && !submittedOptionId && !revealState && (
+                          <div className="flex justify-end animate-fade-in">
                             <button
-                              key={opt.id}
-                              onClick={() => handleOptionSelect(opt.id)}
-                              disabled={!!submittedOptionId}
-                              className={`flex items-center gap-3 w-full border text-left p-3.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                                isSelected
-                                  ? "bg-indigo-600/20 border-indigo-500 text-white font-bold"
-                                  : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]"
-                              }`}
+                              onClick={handleRapidFireSubmit}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
                             >
-                              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
-                                isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
-                              }`}>
-                                {prefix}
-                              </span>
-                              <span className="truncate">{opt.text}</span>
+                              Submit Answer
                             </button>
-                          );
-                        })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -455,6 +503,43 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                 ) : (
                   <p className="text-xs text-red-400 font-bold uppercase tracking-wider animate-pulse">Press the Buzzer NOW!</p>
                 )}
+
+                {/* Options display in Buzzer round */}
+                {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
+                  <div className="w-full max-w-md grid gap-3 sm:grid-cols-2 mt-6 text-left">
+                    {state.activeQuestion.options.map((opt, index) => {
+                      const isRevealed = revealState !== null;
+                      const isCorrectOption = isRevealed && revealState.correctOptionId === opt.id;
+                      
+                      let optionStyle = "bg-white/5 border-white/10 text-gray-300";
+                      let badgeStyle = "bg-white/10 text-gray-400";
+                      
+                      if (isRevealed) {
+                        if (isCorrectOption) {
+                          optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
+                          badgeStyle = "bg-emerald-500 text-white";
+                        } else {
+                          optionStyle = "bg-white/5 border-white/5 text-gray-600";
+                          badgeStyle = "bg-white/5 text-gray-600";
+                        }
+                      }
+                      
+                      const prefix = String.fromCharCode(65 + index);
+                      
+                      return (
+                        <div
+                          key={opt.id}
+                          className={`flex items-center gap-3 border p-3.5 rounded-xl text-xs font-semibold ${optionStyle}`}
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${badgeStyle}`}>
+                            {prefix}
+                          </span>
+                          <span className="truncate">{opt.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               /* MCQ Option Grid */
@@ -468,14 +553,14 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                   let badgeStyle = "bg-white/10 text-gray-400";
                   
                   if (isRevealed) {
-                    if (wasSelectedAtReveal) {
-                      if (revealState.isCorrect) {
-                        optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
-                        badgeStyle = "bg-emerald-500 text-white";
-                      } else {
-                        optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
-                        badgeStyle = "bg-red-500 text-white";
-                      }
+                    const isCorrectOption = revealState.correctOptionId === opt.id;
+                    const wasSelected = revealState.selectedOptionId === opt.id;
+                    if (isCorrectOption) {
+                      optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
+                      badgeStyle = "bg-emerald-500 text-white";
+                    } else if (wasSelected) {
+                      optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
+                      badgeStyle = "bg-red-500 text-white";
                     } else {
                       optionStyle = "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed";
                       badgeStyle = "bg-white/5 text-gray-600";

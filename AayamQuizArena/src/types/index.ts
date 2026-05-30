@@ -100,6 +100,8 @@ export interface RealtimeQuizState {
     questionTimeLeft: number;
     isRunning: boolean;
     questionIndex: number;
+    pausedForSelection?: boolean;
+    selectedOptionId?: string | null;
     config?: {
       totalRoundTime: number;
       questionTimeLimit: number;

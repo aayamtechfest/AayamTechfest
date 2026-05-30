@@ -46,7 +46,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       }
     });
 
-    socket.on("reveal-answer", ({ correctOptionId }) => {
+    socket.on("projector:reveal-answer", ({ correctOptionId }) => {
       setRevealedOptionId(correctOptionId);
     });
 
@@ -90,14 +90,36 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
     return () => clearInterval(timer);
   }, [state?.questionEndsAt]);
 
-  const isTeam = state?.quizMode === "TEAM";
-  const sortedEntities = isTeam
-    ? [...(state?.teams || [])].sort((a, b) => b.score - a.score).slice(0, 8)
-    : [...(state?.participants || [])].sort((a, b) => b.score - a.score).slice(0, 8);
+  const isCompleted = state ? state.status === "COMPLETED" : session.status === "COMPLETED";
 
-  const currentRound = state?.currentRoundTitle
+  const isTeam = state ? state.quizMode === "TEAM" : session.quiz?.mode === "TEAM";
+
+  // Get sorted list of ranks with fallback to static session database scores
+  const sortedEntities = isTeam
+    ? (state
+        ? [...(state.teams || [])].sort((a, b) => b.score - a.score)
+        : [...(session.teams || [])].map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            color: t.color,
+            score: t.totalScore || 0
+          })).sort((a: any, b: any) => b.score - a.score)).slice(0, 8)
+    : (state
+        ? [...(state.participants || [])].sort((a, b) => b.score - a.score)
+        : [...(session.participants || [])].map((p: any) => ({
+            id: p.id,
+            displayName: p.displayName,
+            registrationNumber: p.registration?.registrationId || "Solo",
+            score: p.totalScore || 0
+          })).sort((a: any, b: any) => b.score - a.score)).slice(0, 8);
+
+  const currentRound = isCompleted
+    ? "Competition Finished"
+    : state?.currentRoundTitle
     ? `Round ${state.currentRoundNumber}: ${state.currentRoundTitle}`
     : "Live Competition";
+
+  const podium = sortedEntities.slice(0, 3);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-[#060613] text-white overflow-hidden p-6 select-none">
@@ -141,8 +163,92 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10 min-h-0">
         
         {/* Left 70%: Question details / Buzzer flash */}
-        <div className="lg:col-span-2 flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl min-h-[450px]">
-          {state?.status === "WAITING" ? (
+        <div className="lg:col-span-2 flex flex-col justify-between rounded-3xl border border-white/10 bg-[#0c0c1e]/60 p-8 backdrop-blur-xl min-h-[450px]">
+          {isCompleted ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 py-4 animate-fade-in">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-400 font-extrabold tracking-wider uppercase animate-pulse">
+                <Trophy className="h-4 w-4" />
+                Final Standings
+              </div>
+              
+              <h2 className="bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-4xl sm:text-5xl font-black tracking-tight text-transparent font-heading uppercase leading-none">
+                Championship Podium
+              </h2>
+              
+              {/* Podium display (Top 3) */}
+              <div className="grid gap-6 grid-cols-3 w-full max-w-xl mx-auto pt-8 items-end relative min-h-[240px]">
+                {/* 2nd Place (Left) */}
+                {podium[1] && (
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute -inset-1 rounded-full bg-slate-400/20 blur-sm" />
+                      <div className="h-14 w-14 rounded-full bg-[#1e1e38] border-2 border-slate-400 flex items-center justify-center text-slate-400 font-bold text-sm">
+                        2
+                      </div>
+                    </div>
+                    <div className="w-full text-center rounded-2xl border border-white/5 bg-[#121225]/40 p-4 backdrop-blur-md">
+                      <p className="text-sm font-bold text-slate-300 truncate font-heading">
+                        {(podium[1] as any).name || (podium[1] as any).displayName}
+                      </p>
+                      <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mt-0.5">
+                        {isTeam ? "Team" : "Contestant"}
+                      </p>
+                      <p className="text-base font-mono font-extrabold text-indigo-300 mt-2">
+                        {(podium[1] as any).score} pts
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 1st Place (Center) */}
+                {podium[0] && (
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="relative flex items-center justify-center animate-bounce-slow">
+                      <div className="absolute -inset-2 rounded-full bg-amber-500/20 blur-md animate-pulse" />
+                      <Trophy className="absolute -top-7 h-7 w-7 text-amber-400 animate-bounce" />
+                      <div className="h-18 w-18 rounded-full bg-[#1e1e38] border-4 border-amber-400 flex items-center justify-center text-amber-400 font-extrabold text-lg">
+                        1
+                      </div>
+                    </div>
+                    <div className="w-full text-center rounded-2xl border border-amber-500/20 bg-indigo-500/10 p-5 backdrop-blur-md shadow-xl shadow-amber-500/5">
+                      <p className="text-base font-extrabold text-white truncate font-heading">
+                        {(podium[0] as any).name || (podium[0] as any).displayName}
+                      </p>
+                      <p className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider mt-0.5">
+                        {isTeam ? "Team" : "Contestant"}
+                      </p>
+                      <p className="text-lg font-mono font-extrabold text-amber-400 mt-2">
+                        {(podium[0] as any).score} pts
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3rd Place (Right) */}
+                {podium[2] && (
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute -inset-1 rounded-full bg-amber-700/20 blur-sm" />
+                      <div className="h-12 w-12 rounded-full bg-[#1e1e38] border-2 border-amber-700 flex items-center justify-center text-amber-700 font-bold text-xs">
+                        3
+                      </div>
+                    </div>
+                    <div className="w-full text-center rounded-2xl border border-white/5 bg-[#121225]/40 p-4 backdrop-blur-md">
+                      <p className="text-sm font-bold text-amber-600 truncate font-heading">
+                        {(podium[2] as any).name || (podium[2] as any).displayName}
+                      </p>
+                      <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mt-0.5">
+                        {isTeam ? "Team" : "Contestant"}
+                      </p>
+                      <p className="text-base font-mono font-extrabold text-indigo-300 mt-2">
+                        {(podium[2] as any).score} pts
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : state?.status === "WAITING" ? (
             /* Lobby Waiting Room Layout */
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
               <div className="h-20 w-20 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
@@ -191,14 +297,14 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                   {state.rapidFireState?.isRunning && (
                     <div className="flex items-center gap-3">
                       {/* Round Timer */}
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 px-3.5 py-1.5 rounded-xl text-red-400 font-mono font-black text-sm">
+                      <div className={`flex items-center gap-2 bg-red-500/10 border px-3.5 py-1.5 rounded-xl text-red-400 font-mono font-black text-sm transition-colors duration-250 ${state.rapidFireState.pausedForSelection ? "border-amber-500/40 text-amber-400" : "border-red-500/30"}`}>
                         <Clock className="h-4 w-4 animate-pulse" />
-                        <span>Round: {state.rapidFireState.timeLeft}s</span>
+                        <span>Round: {state.rapidFireState.timeLeft}s {state.rapidFireState.pausedForSelection && "(Paused)"}</span>
                       </div>
                       {/* Question Timer */}
-                      <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3.5 py-1.5 rounded-xl text-amber-400 font-mono font-black text-sm">
+                      <div className={`flex items-center gap-2 bg-amber-500/10 border px-3.5 py-1.5 rounded-xl text-amber-400 font-mono font-black text-sm transition-colors duration-250 ${state.rapidFireState.pausedForSelection ? "border-amber-500/40 text-amber-400 animate-pulse" : "border-amber-500/30"}`}>
                         <Clock className="h-4 w-4" />
-                        <span>Question: {state.rapidFireState.questionTimeLeft}s</span>
+                        <span>Question: {state.rapidFireState.questionTimeLeft}s {state.rapidFireState.pausedForSelection && "(Paused)"}</span>
                       </div>
                     </div>
                   )}
@@ -232,19 +338,29 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                       {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           {state.activeQuestion.options.map((opt, idx) => {
-                            const prefix = String.fromCharCode(65 + idx);
-                            return (
-                              <div
-                                key={opt.id}
-                                className="flex items-center gap-3 border px-4 py-3.5 rounded-xl text-sm font-bold bg-white/5 border-white/10 text-gray-300"
-                              >
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                  {prefix}
-                                </span>
-                                <span className="truncate">{opt.text}</span>
-                              </div>
-                            );
-                          })}
+                             const prefix = String.fromCharCode(65 + idx);
+                             const isSelected = state.rapidFireState?.selectedOptionId === opt.id;
+                             
+                             let optionStyle = "bg-white/5 border-white/10 text-gray-300";
+                             let badgeStyle = "bg-amber-500/10 text-amber-300 border border-amber-500/20";
+                             
+                             if (isSelected) {
+                               optionStyle = "bg-amber-500/15 border-amber-500 text-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.25)] animate-pulse";
+                               badgeStyle = "bg-amber-500 text-black border border-amber-500";
+                             }
+
+                             return (
+                               <div
+                                 key={opt.id}
+                                 className={`flex items-center gap-3 border px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${optionStyle}`}
+                               >
+                                 <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${badgeStyle}`}>
+                                   {prefix}
+                                 </span>
+                                 <span className="truncate">{opt.text}</span>
+                               </div>
+                             );
+                           })}
                         </div>
                       )}
                     </div>
@@ -346,7 +462,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                 <div className="grid gap-3 sm:grid-cols-2 pt-6">
                   {state.activeQuestion.options.map((opt, idx) => {
                     const prefix = String.fromCharCode(65 + idx);
-                    const isRevealedCorrect = state.currentRoundType !== "BUZZER" && revealedOptionId === opt.id;
+                    const isRevealedCorrect = revealedOptionId === opt.id;
                     return (
                       <div
                         key={opt.id}
@@ -425,8 +541,8 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
         </div>
 
         {/* Right 30%: Live scoreboard (Top 8) OR Rapid Fire details */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl flex flex-col justify-between min-h-[450px]">
-          {state?.currentRoundType === "RAPID_FIRE" && state.rapidFireState ? (
+        <div className="rounded-3xl border border-white/10 bg-[#0c0c1e]/60 p-6 backdrop-blur-xl flex flex-col justify-between min-h-[450px]">
+          {state?.currentRoundType === "RAPID_FIRE" && state.rapidFireState && !isCompleted ? (
             <div className="flex-1 flex flex-col justify-between h-full space-y-4">
               <div className="space-y-4">
                 <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
@@ -510,7 +626,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                     return (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between border border-white/5 bg-black/35 p-3 rounded-xl text-sm animate-fade-in"
+                        className="flex items-center justify-between border border-white/5 bg-[#121225]/45 hover:bg-[#1c1c38]/45 p-3 rounded-xl text-sm transition-all duration-200"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span

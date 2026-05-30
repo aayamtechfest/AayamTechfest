@@ -7,6 +7,15 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
+// Global exception boundaries to prevent socket server crashes
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Fatal Error] Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[Fatal Error] Uncaught Exception thrown:", error);
+});
+
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set.");
@@ -58,6 +67,8 @@ interface RealtimeQuizStateCache {
     isRunning: boolean;
     questionIndex: number;
     timerInterval?: NodeJS.Timeout | null;
+    pausedForSelection?: boolean;
+    selectedOptionId?: string | null;
     config: {
       totalRoundTime: number;
       questionTimeLimit: number;
@@ -180,6 +191,8 @@ async function broadcastState(sessionId: string) {
         questionTimeLeft: cache.rapidFireState.questionTimeLeft,
         isRunning: cache.rapidFireState.isRunning,
         questionIndex: cache.rapidFireState.questionIndex,
+        pausedForSelection: cache.rapidFireState.pausedForSelection,
+        selectedOptionId: cache.rapidFireState.selectedOptionId,
         config: cache.rapidFireState.config,
         stats: cache.rapidFireState.stats,
       } : null,
@@ -228,24 +241,52 @@ io.on("connection", (socket) => {
 
   // ─── LOBBY JOINING ─────────────────────────────────────────────────────────
   socket.on("join-session", async ({ sessionId, participantId }) => {
-    socket.join(`session:${sessionId}`);
-    socket.data = { sessionId, participantId, isAdmin: false };
-    
-    if (participantId) {
-      // Set connection status to active in DB
-      await prisma.quizParticipant.update({
-        where: { id: participantId },
-        data: { isConnected: true },
-      });
-    }
+    try {
+      socket.join(`session:${sessionId}`);
+      socket.data = { sessionId, participantId, isAdmin: false };
+      
+      if (participantId) {
+        // Set connection status to active in DB
+        await prisma.quizParticipant.update({
+          where: { id: participantId },
+          data: { isConnected: true },
+        });
+      }
 
-    if (!activeSessions.has(sessionId)) {
-      const session = await prisma.quizSession.findUnique({ where: { id: sessionId } });
-      if (session) {
+      if (!activeSessions.has(sessionId)) {
+        const session = await prisma.quizSession.findUnique({ where: { id: sessionId } });
+        if (session) {
+          activeSessions.set(sessionId, {
+            sessionId,
+            status: session.status,
+            currentRoundId: session.currentRoundId,
+            activeQuestionId: null,
+            questionStartedAt: null,
+            questionEndsAt: null,
+            timerInterval: null,
+            buzzerOpen: false,
+            questionCompleted: false,
+          });
+        }
+      }
+
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in join-session handler:", err);
+    }
+  });
+
+  socket.on("admin:join-session", async ({ sessionId }) => {
+    try {
+      socket.join(`session:${sessionId}`);
+      socket.join(`admin:session:${sessionId}`);
+      socket.data = { sessionId, isAdmin: true };
+      
+      if (!activeSessions.has(sessionId)) {
         activeSessions.set(sessionId, {
           sessionId,
-          status: session.status,
-          currentRoundId: session.currentRoundId,
+          status: "ACTIVE",
+          currentRoundId: null,
           activeQuestionId: null,
           questionStartedAt: null,
           questionEndsAt: null,
@@ -254,280 +295,308 @@ io.on("connection", (socket) => {
           questionCompleted: false,
         });
       }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:join-session handler:", err);
     }
-
-    broadcastState(sessionId);
-  });
-
-  socket.on("admin:join-session", ({ sessionId }) => {
-    socket.join(`session:${sessionId}`);
-    socket.join(`admin:session:${sessionId}`);
-    socket.data = { sessionId, isAdmin: true };
-    
-    if (!activeSessions.has(sessionId)) {
-      activeSessions.set(sessionId, {
-        sessionId,
-        status: "ACTIVE",
-        currentRoundId: null,
-        activeQuestionId: null,
-        questionStartedAt: null,
-        questionEndsAt: null,
-        timerInterval: null,
-        buzzerOpen: false,
-        questionCompleted: false,
-      });
-    }
-    broadcastState(sessionId);
   });
 
   socket.on("admin:start-session", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.status = "ACTIVE";
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.status = "ACTIVE";
+      }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:start-session handler:", err);
     }
-    broadcastState(sessionId);
   });
 
   socket.on("admin:pause-session", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.status = "PAUSED";
-      if (cache.timerInterval) {
-        clearTimeout(cache.timerInterval);
-        cache.timerInterval = null;
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.status = "PAUSED";
+        if (cache.timerInterval) {
+          clearTimeout(cache.timerInterval);
+          cache.timerInterval = null;
+        }
+        if (cache.rapidFireState?.timerInterval) {
+          clearInterval(cache.rapidFireState.timerInterval);
+        }
       }
-      if (cache.rapidFireState?.timerInterval) {
-        clearInterval(cache.rapidFireState.timerInterval);
-      }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:pause-session handler:", err);
     }
-    broadcastState(sessionId);
   });
 
   socket.on("admin:resume-session", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.status = "ACTIVE";
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.status = "ACTIVE";
+      }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:resume-session handler:", err);
     }
-    broadcastState(sessionId);
   });
 
   socket.on("admin:end-session", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.status = "COMPLETED";
-      cache.activeQuestionId = null;
-      if (cache.timerInterval) {
-        clearTimeout(cache.timerInterval);
-        cache.timerInterval = null;
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.status = "COMPLETED";
+        cache.activeQuestionId = null;
+        if (cache.timerInterval) {
+          clearTimeout(cache.timerInterval);
+          cache.timerInterval = null;
+        }
+        if (cache.buzzerCountdownInterval) {
+          clearInterval(cache.buzzerCountdownInterval);
+        }
+        if (cache.rapidFireState?.timerInterval) {
+          clearInterval(cache.rapidFireState.timerInterval);
+        }
       }
-      if (cache.buzzerCountdownInterval) {
-        clearInterval(cache.buzzerCountdownInterval);
-      }
-      if (cache.rapidFireState?.timerInterval) {
-        clearInterval(cache.rapidFireState.timerInterval);
-      }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:end-session handler:", err);
     }
-    broadcastState(sessionId);
   });
 
   socket.on("admin:start-round", async ({ sessionId, roundId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.currentRoundId = roundId;
-      cache.activeQuestionId = null;
-      cache.buzzerOpen = false;
-      cache.questionCompleted = false;
-
-      // Reset timers
-      if (cache.timerInterval) {
-        clearTimeout(cache.timerInterval);
-        cache.timerInterval = null;
-      }
-      if (cache.buzzerCountdownInterval) {
-        clearInterval(cache.buzzerCountdownInterval);
-        cache.buzzerCountdownInterval = null;
-      }
-      
-      const round = await prisma.quizRound.findUnique({ where: { id: roundId } });
-      if (round) {
-        if (round.type === "RAPID_FIRE") {
-          cache.rapidFireState = {
-            activeTeamId: null,
-            activeParticipantId: null,
-            timeLeft: 60,
-            questionTimeLeft: 10,
-            isRunning: false,
-            questionIndex: 0,
-            config: {
-              totalRoundTime: 60,
-              questionTimeLimit: 10,
-              pointsPerQuestion: 10,
-              negativeMarking: false,
-            },
-            stats: {
-              attempted: 0,
-              correct: 0,
-              wrong: 0,
-              score: 0,
-            }
-          };
-          cache.passRoundState = undefined;
-        } else {
-          cache.rapidFireState = undefined;
-          cache.passRoundState = {
-            activeTeamId: null,
-            activeParticipantId: null,
-            passCount: 0,
-            passHistory: [],
-          };
-        }
-      }
-    }
-    broadcastState(sessionId);
-  });
-
-  socket.on("admin:end-round", async ({ sessionId, roundId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.activeQuestionId = null;
-      if (cache.timerInterval) {
-        clearTimeout(cache.timerInterval);
-        cache.timerInterval = null;
-      }
-      if (cache.buzzerCountdownInterval) {
-        clearInterval(cache.buzzerCountdownInterval);
-        cache.buzzerCountdownInterval = null;
-      }
-      if (cache.rapidFireState?.timerInterval) {
-        clearInterval(cache.rapidFireState.timerInterval);
-      }
-      cache.rapidFireState = undefined;
-      cache.passRoundState = undefined;
-    }
-    broadcastState(sessionId);
-  });
-
-  socket.on("admin:push-question", async ({ sessionId, questionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      if (cache.timerInterval) {
-        clearTimeout(cache.timerInterval);
-        cache.timerInterval = null;
-      }
-      if (cache.buzzerCountdownInterval) {
-        clearInterval(cache.buzzerCountdownInterval);
-        cache.buzzerCountdownInterval = null;
-      }
-
-      const question = await prisma.quizQuestion.findUnique({
-        where: { id: questionId },
-        include: { round: true },
-      });
-
-      if (question) {
-        const duration = question.timeLimit || question.round?.timeLimit || 30;
-        const started = new Date();
-        const ends = new Date(started.getTime() + duration * 1000);
-
-        cache.activeQuestionId = questionId;
-        cache.questionStartedAt = started;
-        cache.questionEndsAt = ends;
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.currentRoundId = roundId;
+        cache.activeQuestionId = null;
         cache.buzzerOpen = false;
         cache.questionCompleted = false;
 
-        // Log question usage
-        await prisma.quizQuestionUsage.upsert({
-          where: {
-            sessionId_questionId: {
-              sessionId,
-              questionId,
-            },
-          },
-          update: {},
-          create: {
-            sessionId,
-            roundId: question.roundId!,
-            questionId,
-          },
-        });
-
-        // Reset question pass controls
-        if (cache.passRoundState) {
-          cache.passRoundState.passCount = 0;
-          cache.passRoundState.passHistory = [];
+        // Reset timers
+        if (cache.timerInterval) {
+          clearTimeout(cache.timerInterval);
+          cache.timerInterval = null;
         }
-
-        // Auto activation countdown for Buzzer Round (3s countdown -> Buzzer Open)
-        if (question.round?.type === "BUZZER") {
-          let countdown = 3;
-          io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: countdown });
-
-          cache.buzzerCountdownInterval = setInterval(() => {
-            countdown--;
-            if (countdown > 0) {
-              io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: countdown });
-            } else {
-              clearInterval(cache.buzzerCountdownInterval!);
-              cache.buzzerCountdownInterval = null;
-              cache.buzzerOpen = true;
-              io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: 0 }); // 0 means BUZZ OPEN
-              broadcastState(sessionId);
-            }
-          }, 1000);
-        } else if (question.round?.type === "MCQ") {
-          cache.timerInterval = setTimeout(() => {
-            io.to(`session:${sessionId}`).emit("timer-expired", { questionId });
-          }, duration * 1000);
+        if (cache.buzzerCountdownInterval) {
+          clearInterval(cache.buzzerCountdownInterval);
+          cache.buzzerCountdownInterval = null;
+        }
+        
+        const round = await prisma.quizRound.findUnique({ where: { id: roundId } });
+        if (round) {
+          if (round.type === "RAPID_FIRE") {
+            cache.rapidFireState = {
+              activeTeamId: null,
+              activeParticipantId: null,
+              timeLeft: 60,
+              questionTimeLeft: 10,
+              isRunning: false,
+              questionIndex: 0,
+              config: {
+                totalRoundTime: 60,
+                questionTimeLimit: 10,
+                pointsPerQuestion: 10,
+                negativeMarking: false,
+              },
+              stats: {
+                attempted: 0,
+                correct: 0,
+                wrong: 0,
+                score: 0,
+              }
+            };
+            cache.passRoundState = undefined;
+          } else {
+            cache.rapidFireState = undefined;
+            cache.passRoundState = {
+              activeTeamId: null,
+              activeParticipantId: null,
+              passCount: 0,
+              passHistory: [],
+            };
+          }
         }
       }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:start-round handler:", err);
     }
+  });
 
-    broadcastState(sessionId);
+  socket.on("admin:end-round", async ({ sessionId, roundId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.activeQuestionId = null;
+        if (cache.timerInterval) {
+          clearTimeout(cache.timerInterval);
+          cache.timerInterval = null;
+        }
+        if (cache.buzzerCountdownInterval) {
+          clearInterval(cache.buzzerCountdownInterval);
+          cache.buzzerCountdownInterval = null;
+        }
+        if (cache.rapidFireState?.timerInterval) {
+          clearInterval(cache.rapidFireState.timerInterval);
+        }
+        cache.rapidFireState = undefined;
+        cache.passRoundState = undefined;
+      }
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:end-round handler:", err);
+    }
+  });
+
+  socket.on("admin:push-question", async ({ sessionId, questionId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        if (cache.timerInterval) {
+          clearTimeout(cache.timerInterval);
+          cache.timerInterval = null;
+        }
+        if (cache.buzzerCountdownInterval) {
+          clearInterval(cache.buzzerCountdownInterval);
+          cache.buzzerCountdownInterval = null;
+        }
+
+        const question = await prisma.quizQuestion.findUnique({
+          where: { id: questionId },
+          include: { round: true },
+        });
+
+        if (question) {
+          const duration = question.timeLimit || question.round?.timeLimit || 30;
+          const started = new Date();
+          const ends = new Date(started.getTime() + duration * 1000);
+
+          cache.activeQuestionId = questionId;
+          cache.questionStartedAt = started;
+          cache.questionEndsAt = ends;
+          cache.buzzerOpen = false;
+          cache.questionCompleted = false;
+
+          // Log question usage
+          await prisma.quizQuestionUsage.upsert({
+            where: {
+              sessionId_questionId: {
+                sessionId,
+                questionId,
+              },
+            },
+            update: {},
+            create: {
+              sessionId,
+              roundId: question.roundId!,
+              questionId,
+            },
+          });
+
+          // Reset question pass controls
+          if (cache.passRoundState) {
+            cache.passRoundState.passCount = 0;
+            cache.passRoundState.passHistory = [];
+          }
+
+          // Auto activation countdown for Buzzer Round (3s countdown -> Buzzer Open)
+          if (question.round?.type === "BUZZER") {
+            let countdown = 3;
+            io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: countdown });
+
+            cache.buzzerCountdownInterval = setInterval(() => {
+              try {
+                countdown--;
+                if (countdown > 0) {
+                  io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: countdown });
+                } else {
+                  if (cache.buzzerCountdownInterval) {
+                    clearInterval(cache.buzzerCountdownInterval);
+                    cache.buzzerCountdownInterval = null;
+                  }
+                  cache.buzzerOpen = true;
+                  io.to(`session:${sessionId}`).emit("buzzer-countdown", { count: 0 }); // 0 means BUZZ OPEN
+                  broadcastState(sessionId);
+                }
+              } catch (err) {
+                console.error("Error in buzzer countdown interval:", err);
+              }
+            }, 1000);
+          } else if (question.round?.type === "MCQ") {
+            cache.timerInterval = setTimeout(() => {
+              try {
+                io.to(`session:${sessionId}`).emit("timer-expired", { questionId });
+              } catch (err) {
+                console.error("Error in timer-expired setTimeout:", err);
+              }
+            }, duration * 1000);
+          }
+        }
+      }
+
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:push-question handler:", err);
+    }
   });
 
   socket.on("admin:reveal-answer", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache && cache.activeQuestionId) {
-      const correctOption = await prisma.quizQuestionOption.findFirst({
-        where: { questionId: cache.activeQuestionId, isCorrect: true },
-      });
-      
-      // Emit correctOptionId to admins ONLY
-      io.to(`admin:session:${sessionId}`).emit("admin:reveal-answer", {
-        questionId: cache.activeQuestionId,
-        correctOptionId: correctOption?.id || null,
-      });
-
-      // Get all answers for this question
-      const answers = await prisma.quizAnswer.findMany({
-        where: { sessionId, questionId: cache.activeQuestionId },
-      });
-
-      // Emit to each player individually telling them if their submission was correct
-      const roomSockets = await io.in(`session:${sessionId}`).fetchSockets();
-      for (const s of roomSockets) {
-        if (s.rooms.has(`admin:session:${sessionId}`)) continue;
-
-        const participantId = s.data?.participantId;
-        const playerAns = answers.find((a) => a.participantId === participantId);
-
-        s.emit("reveal-answer", {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache && cache.activeQuestionId) {
+        const correctOption = await prisma.quizQuestionOption.findFirst({
+          where: { questionId: cache.activeQuestionId, isCorrect: true },
+        });
+        
+        // Emit correctOptionId to admins ONLY
+        io.to(`admin:session:${sessionId}`).emit("admin:reveal-answer", {
           questionId: cache.activeQuestionId,
-          isCorrect: playerAns ? playerAns.isCorrect : false,
-          hasSubmitted: !!playerAns,
-          selectedOptionId: playerAns ? playerAns.selectedOptionId : null,
+          correctOptionId: correctOption?.id || null,
+        });
+
+        // Get all answers for this question
+        const answers = await prisma.quizAnswer.findMany({
+          where: { sessionId, questionId: cache.activeQuestionId },
+        });
+
+        // Emit to each player individually telling them if their submission was correct
+        const roomSockets = await io.in(`session:${sessionId}`).fetchSockets();
+        for (const s of roomSockets) {
+          if (s.rooms.has(`admin:session:${sessionId}`)) continue;
+
+          const participantId = s.data?.participantId;
+          const playerAns = answers.find((a) => a.participantId === participantId);
+
+          s.emit("reveal-answer", {
+            questionId: cache.activeQuestionId,
+            isCorrect: playerAns ? playerAns.isCorrect : false,
+            hasSubmitted: !!playerAns,
+            selectedOptionId: playerAns ? playerAns.selectedOptionId : null,
+            correctOptionId: correctOption?.id || null,
+          });
+        }
+
+        // Projector receives projector:reveal-answer with correctOptionId to highlight correct options
+        io.to(`session:${sessionId}`).emit("projector:reveal-answer", {
+          questionId: cache.activeQuestionId,
+          correctOptionId: correctOption?.id || null,
         });
       }
-
-      // Projector does not receive correctOptionId, keeping auditorium view clean
-      io.to(`session:${sessionId}`).emit("projector:reveal-answer", {
-        questionId: cache.activeQuestionId,
-      });
+    } catch (err) {
+      console.error("Error in admin:reveal-answer handler:", err);
     }
   });
 
-  socket.on("admin:trigger-score-sync", ({ sessionId }) => {
-    broadcastState(sessionId);
+  socket.on("admin:trigger-score-sync", async ({ sessionId }) => {
+    try {
+      await broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:trigger-score-sync handler:", err);
+    }
   });
 
   // ─── PLAYER CONTROLS ──────────────────────────────────────────────────────
@@ -546,6 +615,8 @@ io.on("connection", (socket) => {
       // Handle RAPID_FIRE round team scoring & automatic progression
       if (question.round?.type === "RAPID_FIRE" && cache.rapidFireState?.isRunning) {
         const rfState = cache.rapidFireState;
+        rfState.pausedForSelection = false;
+        rfState.selectedOptionId = null;
         
         // Verify sender belongs to active team/participant
         const sender = await prisma.quizParticipant.findUnique({
@@ -775,20 +846,28 @@ io.on("connection", (socket) => {
   });
 
   // ─── BUZZER EVENT HANDLERS ────────────────────────────────────────────────
-  socket.on("admin:open-buzzer", ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.buzzerOpen = true;
-      io.to(`session:${sessionId}`).emit("buzzer-reset"); // Reset rank animations
-      broadcastState(sessionId);
+  socket.on("admin:open-buzzer", async ({ sessionId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.buzzerOpen = true;
+        io.to(`session:${sessionId}`).emit("buzzer-reset"); // Reset rank animations
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:open-buzzer handler:", err);
     }
   });
 
-  socket.on("admin:close-buzzer", ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.buzzerOpen = false;
-      broadcastState(sessionId);
+  socket.on("admin:close-buzzer", async ({ sessionId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.buzzerOpen = false;
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:close-buzzer handler:", err);
     }
   });
 
@@ -830,14 +909,18 @@ io.on("connection", (socket) => {
   });
 
   socket.on("admin:reset-buzzer", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache && cache.activeQuestionId) {
-      cache.buzzerOpen = false;
-      await prisma.quizBuzzerEvent.deleteMany({
-        where: { sessionId, questionId: cache.activeQuestionId },
-      });
-      io.to(`session:${sessionId}`).emit("buzzer-reset");
-      broadcastState(sessionId);
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache && cache.activeQuestionId) {
+        cache.buzzerOpen = false;
+        await prisma.quizBuzzerEvent.deleteMany({
+          where: { sessionId, questionId: cache.activeQuestionId },
+        });
+        io.to(`session:${sessionId}`).emit("buzzer-reset");
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:reset-buzzer handler:", err);
     }
   });
 
@@ -905,128 +988,157 @@ io.on("connection", (socket) => {
 
   // ─── RAPID FIRE HANDLERS ──────────────────────────────────────────────────
   socket.on("admin:set-rapid-fire-team", async ({ sessionId, teamId, participantId, config }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      if (cache.rapidFireState?.timerInterval) {
-        clearInterval(cache.rapidFireState.timerInterval);
-      }
-
-      const totalRoundTime = config?.totalRoundTime || 60;
-      const questionTimeLimit = config?.questionTimeLimit || 10;
-      const pointsPerQuestion = config?.pointsPerQuestion || 10;
-      const negativeMarking = config?.negativeMarking === true;
-
-      cache.rapidFireState = {
-        activeTeamId: teamId || null,
-        activeParticipantId: participantId || null,
-        timeLeft: totalRoundTime,
-        questionTimeLeft: questionTimeLimit,
-        isRunning: false,
-        questionIndex: 0,
-        config: {
-          totalRoundTime,
-          questionTimeLimit,
-          pointsPerQuestion,
-          negativeMarking,
-        },
-        stats: {
-          attempted: 0,
-          correct: 0,
-          wrong: 0,
-          score: 0,
-          history: [],
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        if (cache.rapidFireState?.timerInterval) {
+          clearInterval(cache.rapidFireState.timerInterval);
         }
-      };
 
-      // Set active question to the first in the round question pool
-      const round = await prisma.quizRound.findUnique({
-        where: { id: cache.currentRoundId! },
-      });
-      const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
-      const roundQuestions = await prisma.quizQuestion.findMany({
-        where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
-        orderBy: { sortOrder: "asc" },
-      });
+        const totalRoundTime = config?.totalRoundTime || 60;
+        const questionTimeLimit = config?.questionTimeLimit || 10;
+        const pointsPerQuestion = config?.pointsPerQuestion || 10;
+        const negativeMarking = config?.negativeMarking === true;
 
-      if (roundQuestions.length > 0) {
-        cache.activeQuestionId = roundQuestions[0].id;
-        cache.questionStartedAt = new Date();
-        cache.questionEndsAt = new Date(Date.now() + questionTimeLimit * 1000);
+        cache.rapidFireState = {
+          activeTeamId: teamId || null,
+          activeParticipantId: participantId || null,
+          timeLeft: totalRoundTime,
+          questionTimeLeft: questionTimeLimit,
+          isRunning: false,
+          questionIndex: 0,
+          pausedForSelection: false,
+          selectedOptionId: null,
+          config: {
+            totalRoundTime,
+            questionTimeLimit,
+            pointsPerQuestion,
+            negativeMarking,
+          },
+          stats: {
+            attempted: 0,
+            correct: 0,
+            wrong: 0,
+            score: 0,
+            history: [],
+          }
+        };
+
+        // Set active question to the first in the round question pool
+        const round = await prisma.quizRound.findUnique({
+          where: { id: cache.currentRoundId! },
+        });
+        const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
+        const roundQuestions = await prisma.quizQuestion.findMany({
+          where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+          orderBy: { sortOrder: "asc" },
+        });
+
+        if (roundQuestions.length > 0) {
+          cache.activeQuestionId = roundQuestions[0].id;
+          cache.questionStartedAt = new Date();
+          cache.questionEndsAt = new Date(Date.now() + questionTimeLimit * 1000);
+        }
+
+        await broadcastState(sessionId);
       }
-
-      broadcastState(sessionId);
+    } catch (err) {
+      console.error("Error in admin:set-rapid-fire-team handler:", err);
     }
   });
 
   socket.on("admin:start-rapid-fire-timer", async ({ sessionId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache && cache.rapidFireState && !cache.rapidFireState.isRunning) {
-      cache.rapidFireState.isRunning = true;
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache && cache.rapidFireState && !cache.rapidFireState.isRunning) {
+        cache.rapidFireState.isRunning = true;
 
-      const round = await prisma.quizRound.findUnique({
-        where: { id: cache.currentRoundId! },
-      });
-      const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
-      const roundQuestions = await prisma.quizQuestion.findMany({
-        where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
-        orderBy: { sortOrder: "asc" },
-      });
+        const round = await prisma.quizRound.findUnique({
+          where: { id: cache.currentRoundId! },
+        });
+        const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
+        const roundQuestions = await prisma.quizQuestion.findMany({
+          where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+          orderBy: { sortOrder: "asc" },
+        });
 
-      const interval = setInterval(async () => {
-        const rfState = cache.rapidFireState;
-        if (rfState && rfState.isRunning) {
-          if (rfState.timeLeft > 0) {
-            rfState.timeLeft--;
-          }
-          if (rfState.questionTimeLeft > 0) {
-            rfState.questionTimeLeft--;
-          }
+        const interval = setInterval(async () => {
+          try {
+            const rfState = cache.rapidFireState;
+            if (rfState && rfState.isRunning) {
+              if (!rfState.pausedForSelection) {
+                if (rfState.timeLeft > 0) {
+                  rfState.timeLeft--;
+                }
+                if (rfState.questionTimeLeft > 0) {
+                  rfState.questionTimeLeft--;
+                }
 
-          // Question Timeout auto progression
-          if (rfState.questionTimeLeft <= 0) {
-            rfState.stats.attempted++;
-            rfState.stats.wrong++;
+                // Question Timeout auto progression
+                if (rfState.questionTimeLeft <= 0) {
+                  rfState.stats.attempted++;
+                  rfState.stats.wrong++;
 
-            const curQ = roundQuestions[rfState.questionIndex];
-            if (curQ) {
-              if (!rfState.stats.history) {
-                rfState.stats.history = [];
+                  const curQ = roundQuestions[rfState.questionIndex];
+                  if (curQ) {
+                    if (!rfState.stats.history) {
+                      rfState.stats.history = [];
+                    }
+                    rfState.stats.history.push({
+                      questionText: curQ.text,
+                      isCorrect: false,
+                      pointsAwarded: 0,
+                    });
+                  }
+                  
+                  rfState.questionIndex++;
+                  if (rfState.questionIndex < roundQuestions.length) {
+                    cache.activeQuestionId = roundQuestions[rfState.questionIndex].id;
+                    rfState.questionTimeLeft = rfState.config.questionTimeLimit;
+                    cache.questionStartedAt = new Date();
+                    cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
+                  } else {
+                    rfState.isRunning = false;
+                    clearInterval(interval);
+                    io.to(`session:${sessionId}`).emit("rapid-fire-expired");
+                  }
+                }
+
+                // Round Timeout
+                if (rfState.timeLeft <= 0) {
+                  rfState.isRunning = false;
+                  clearInterval(interval);
+                  io.to(`session:${sessionId}`).emit("rapid-fire-expired");
+                }
               }
-              rfState.stats.history.push({
-                questionText: curQ.text,
-                isCorrect: false,
-                pointsAwarded: 0,
-              });
-            }
-            
-            rfState.questionIndex++;
-            if (rfState.questionIndex < roundQuestions.length) {
-              cache.activeQuestionId = roundQuestions[rfState.questionIndex].id;
-              rfState.questionTimeLeft = rfState.config.questionTimeLimit;
-              cache.questionStartedAt = new Date();
-              cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
+
+              await broadcastState(sessionId);
             } else {
-              rfState.isRunning = false;
               clearInterval(interval);
-              io.to(`session:${sessionId}`).emit("rapid-fire-expired");
             }
+          } catch (err) {
+            console.error("Error in rapid fire interval loop:", err);
           }
+        }, 1000);
 
-          // Round Timeout
-          if (rfState.timeLeft <= 0) {
-            rfState.isRunning = false;
-            clearInterval(interval);
-            io.to(`session:${sessionId}`).emit("rapid-fire-expired");
-          }
+        cache.rapidFireState.timerInterval = interval;
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:start-rapid-fire-timer handler:", err);
+    }
+  });
 
-          broadcastState(sessionId);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1000);
-
-      cache.rapidFireState.timerInterval = interval;
-      broadcastState(sessionId);
+  socket.on("rapid-fire:select-option", ({ sessionId, selectedOptionId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache && cache.rapidFireState) {
+        cache.rapidFireState.pausedForSelection = !!selectedOptionId;
+        cache.rapidFireState.selectedOptionId = selectedOptionId;
+        broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in rapid-fire:select-option handler:", err);
     }
   });
 
@@ -1036,6 +1148,8 @@ io.on("connection", (socket) => {
       if (!cache || !cache.rapidFireState) return;
 
       const rfState = cache.rapidFireState;
+      rfState.pausedForSelection = false;
+      rfState.selectedOptionId = null;
       const participantId = rfState.activeParticipantId;
       const teamId = rfState.activeTeamId;
       const points = rfState.config.pointsPerQuestion;
@@ -1146,16 +1260,20 @@ io.on("connection", (socket) => {
   });
 
   // ─── PASS LOGIC HANDLERS ──────────────────────────────────────────────────
-  socket.on("admin:set-pass-round-team", ({ sessionId, teamId, participantId }) => {
-    const cache = activeSessions.get(sessionId);
-    if (cache) {
-      cache.passRoundState = {
-        activeTeamId: teamId || null,
-        activeParticipantId: participantId || null,
-        passCount: 0,
-        passHistory: teamId ? [teamId] : [],
-      };
-      broadcastState(sessionId);
+  socket.on("admin:set-pass-round-team", async ({ sessionId, teamId, participantId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.passRoundState = {
+          activeTeamId: teamId || null,
+          activeParticipantId: participantId || null,
+          passCount: 0,
+          passHistory: teamId ? [teamId] : [],
+        };
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:set-pass-round-team handler:", err);
     }
   });
 
@@ -1309,18 +1427,29 @@ io.on("connection", (socket) => {
 
   // ─── CLEANUP ON DISCONNECT ────────────────────────────────────────────────
   socket.on("disconnect", async () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-    const participantId = socket.data?.participantId;
-    if (participantId) {
-      await prisma.quizParticipant.update({
-        where: { id: participantId },
-        data: { isConnected: false },
-      }).catch((e) => console.error("Disconnect status update error:", e));
-      
-      const sessionId = socket.data?.sessionId;
-      if (sessionId) {
-        broadcastState(sessionId);
+    try {
+      console.log(`Socket disconnected: ${socket.id}`);
+      const participantId = socket.data?.participantId;
+      if (participantId) {
+        // Safe check: Only set isConnected to false if no other socket is active for this participant
+        const sockets = await io.fetchSockets();
+        const stillConnected = sockets.some(
+          (s) => s.data?.participantId === participantId && s.id !== socket.id
+        );
+        if (!stillConnected) {
+          await prisma.quizParticipant.update({
+            where: { id: participantId },
+            data: { isConnected: false },
+          }).catch((e) => console.error("Disconnect status update error:", e));
+        }
+        
+        const sessionId = socket.data?.sessionId;
+        if (sessionId) {
+          await broadcastState(sessionId);
+        }
       }
+    } catch (err) {
+      console.error("Disconnect handler error:", err);
     }
   });
 });

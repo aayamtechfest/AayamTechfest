@@ -86,7 +86,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       });
     });
 
-    socket.on("reveal-answer", () => {
+    socket.on("admin:reveal-answer", () => {
       setIsAnswerRevealed(true);
     });
 
@@ -604,8 +604,8 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   </div>
                 )}
 
-                {/* Score Controls for MCQ (Reveal Correct) */}
-                {activeRound?.type === "MCQ" && (
+                {/* Score Controls for MCQ/Buzzer (Reveal Correct) */}
+                {(activeRound?.type === "MCQ" || activeRound?.type === "BUZZER") && (
                   <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5">
                     <button
                       onClick={handleShowAnswer}
