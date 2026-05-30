@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy root package files to install build tools (TypeScript, Prisma CLI)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # Copy prisma schema and generate Prisma Client
 COPY prisma ./prisma
