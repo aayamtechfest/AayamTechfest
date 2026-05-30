@@ -30,6 +30,19 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [state, setState] = useState<RealtimeQuizState | null>(null);
 
+  // Resolve participant ID at the component level
+  const [resolvedPlayerId, setResolvedPlayerId] = useState<string>("");
+
+  useEffect(() => {
+    let rid = participantId;
+    if (!rid && typeof window !== "undefined") {
+      rid = localStorage.getItem(`session_${session.id}_player`) || "";
+    }
+    if (rid) {
+      setResolvedPlayerId(rid);
+    }
+  }, [participantId, session.id]);
+
   // Participant specific inputs
   const [submittedOptionId, setSubmittedOptionId] = useState<string | null>(null);
   const [hasBuzzed, setHasBuzzed] = useState(false);
@@ -45,16 +58,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   useEffect(() => {
-    let resolvedParticipantId = participantId;
-    if (!resolvedParticipantId) {
-      resolvedParticipantId = localStorage.getItem(`session_${session.id}_player`) || undefined;
-    }
-
-    if (!resolvedParticipantId) {
-      toast.error("Contestant ID not found. Redirecting to join page.");
-      router.push("/join");
-      return;
-    }
+    if (!resolvedPlayerId) return;
 
     const socket = getSocket();
     socket.connect();
@@ -63,7 +67,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       setIsConnected(true);
       socket.emit("join-session", {
         sessionId: session.id,
-        participantId: resolvedParticipantId,
+        participantId: resolvedPlayerId,
       });
     });
 
@@ -101,7 +105,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
     });
 
     socket.on("buzzer-hit", ({ participantId: hitPid, rank }) => {
-      if (hitPid === resolvedParticipantId) {
+      if (hitPid === resolvedPlayerId) {
         setBuzzerRank(rank);
         toast.success(`You buzzed! Rank #${rank}`);
       }
@@ -131,7 +135,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
       socket.off("buzzer-countdown");
       socket.disconnect();
     };
-  }, [session.id, participantId, router]);
+  }, [session.id, resolvedPlayerId, router]);
 
   // Synchronized Client countdown ticker
   useEffect(() => {
@@ -166,7 +170,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
     
     getSocket().emit("submit-answer", {
       sessionId: session.id,
-      participantId,
+      participantId: resolvedPlayerId,
       questionId: state?.activeQuestion?.id,
       selectedOptionId: optionId,
     });
@@ -177,7 +181,7 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
     setHasBuzzed(true);
     getSocket().emit("buzzer-pressed", {
       sessionId: session.id,
-      participantId,
+      participantId: resolvedPlayerId,
     });
   };
   if (!state) {
@@ -189,19 +193,19 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
     );
   }
 
-  const currentPlayer = state.participants.find((p) => p.id === participantId);
+  const currentPlayer = state.participants.find((p) => p.id === resolvedPlayerId);
   const currentTeam = state.teams.find((t) => t.id === currentPlayer?.teamId);
 
   // Active check for Rapid Fire
   const isRapidFireActiveTurn = state.currentRoundType === "RAPID_FIRE" && 
     state.rapidFireState && 
-    (state.rapidFireState.activeParticipantId === participantId || 
+    (state.rapidFireState.activeParticipantId === resolvedPlayerId || 
      (currentPlayer?.teamId && state.rapidFireState.activeTeamId === currentPlayer.teamId));
 
   // Active check for Pass Round
   const isPassRoundActiveTurn = state.currentRoundType === "PASS_ROUND" &&
     state.passRoundState &&
-    (state.passRoundState.activeParticipantId === participantId ||
+    (state.passRoundState.activeParticipantId === resolvedPlayerId ||
      (currentPlayer?.teamId && state.passRoundState.activeTeamId === currentPlayer.teamId));
 
   return (
@@ -326,7 +330,13 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                 <Clock className="mx-auto h-12 w-12 text-gray-600 animate-pulse" />
                 <h2 className="text-xl font-bold text-white font-heading">Spectating Rapid Fire</h2>
                 <p className="text-sm text-gray-400">
-                  Active Team: <span className="text-indigo-400 font-bold">{state.rapidFireState?.activeTeamId ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name : "Waiting..."}</span>
+                  Active Contestant: <span className="text-indigo-400 font-bold">
+                    {state.rapidFireState?.activeTeamId 
+                      ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name 
+                      : (state.rapidFireState?.activeParticipantId 
+                          ? state.participants.find(p => p.id === state.rapidFireState?.activeParticipantId)?.displayName 
+                          : "Waiting...")}
+                  </span>
                 </p>
                 <div className="inline-block bg-black/20 px-4 py-2 border border-white/5 rounded-xl font-mono text-xl font-bold text-gray-300 mt-2">
                   {state.rapidFireState?.timeLeft || 60}s remaining
@@ -409,9 +419,11 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                 {/* Mega Buzzer Button */}
                 <button
                   onClick={handleBuzzerPress}
-                  disabled={hasBuzzed || !state.buzzerOpen}
+                  disabled={hasBuzzed || !state.buzzerOpen || state.questionCompleted}
                   className={`relative flex h-48 w-48 items-center justify-center rounded-full border-8 font-heading text-lg font-extrabold uppercase tracking-wider text-white shadow-2xl transition-all duration-300 active:scale-95 ${
-                    hasBuzzed
+                    state.questionCompleted
+                      ? "bg-emerald-950/40 border-emerald-500/20 text-emerald-500 cursor-not-allowed shadow-none"
+                      : hasBuzzed
                       ? "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed"
                       : !state.buzzerOpen
                       ? "bg-gray-900/60 border-white/5 text-gray-600 cursor-not-allowed shadow-none"
@@ -420,12 +432,14 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
                 >
                   <Volume2 className="absolute top-10 h-6 w-6 opacity-60" />
                   <span className="mt-4">
-                    {hasBuzzed ? "Buzzed" : !state.buzzerOpen ? "Locked" : "Buzz!"}
+                    {state.questionCompleted ? "Resolved" : hasBuzzed ? "Buzzed" : !state.buzzerOpen ? "Locked" : "Buzz!"}
                   </span>
                 </button>
 
-                {/* Rank display */}
-                {hasBuzzed ? (
+                {/* Status/Rank display */}
+                {state.questionCompleted ? (
+                  <p className="text-sm text-emerald-400 font-bold uppercase tracking-wider animate-pulse text-center">Question completed! Points awarded.</p>
+                ) : hasBuzzed ? (
                   <div className="text-center space-y-1">
                     <p className="text-sm text-gray-400">Buzzer registered!</p>
                     {buzzerRank !== null ? (

@@ -634,7 +634,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 )}
 
                 {/* Standardized Turn / Pass Controller */}
-                {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && (
+                {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && activeRound?.type !== "BUZZER" && (
                   <div className="space-y-4 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-gray-400 uppercase">Question Turn Controls</span>
@@ -759,20 +759,41 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   </div>
                 )}
 
-                {/* Team selection */}
+                 {/* Team / Participant selection */}
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <select
-                    value={selectedTeamId}
-                    onChange={(e) => setSelectedTeamId(e.target.value)}
-                    className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
-                  >
-                    <option value="">-- Select Active Team --</option>
-                    {quizState?.teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                  {session.quiz.mode === "TEAM" ? (
+                    <select
+                      value={selectedTeamId}
+                      onChange={(e) => {
+                        setSelectedTeamId(e.target.value);
+                        setSelectedParticipantId("");
+                      }}
+                      className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Select Active Team --</option>
+                      {quizState?.teams.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={selectedParticipantId}
+                      onChange={(e) => {
+                        setSelectedParticipantId(e.target.value);
+                        setSelectedTeamId("");
+                      }}
+                      className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Select Active Participant --</option>
+                      {quizState?.participants.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.displayName} ({p.registrationNumber || "Solo"})
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
                   <button
                     onClick={handleSetRapidFireTeam}
@@ -795,7 +816,13 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 {quizState?.rapidFireState && (
                   <div className="border-t border-white/5 pt-3 space-y-2 text-xs">
                     <p className="text-gray-400 font-semibold">
-                      Playing Team: <span className="text-white font-bold">{quizState.teams.find(t => t.id === quizState.rapidFireState?.activeTeamId)?.name || "Not Set"}</span>
+                      Playing: <span className="text-white font-bold">
+                        {quizState.rapidFireState?.activeTeamId 
+                          ? (quizState.teams.find(t => t.id === quizState.rapidFireState?.activeTeamId)?.name)
+                          : (quizState.rapidFireState?.activeParticipantId 
+                              ? (quizState.participants.find(p => p.id === quizState.rapidFireState?.activeParticipantId)?.displayName)
+                              : "Not Set")}
+                      </span>
                     </p>
                     <p className="text-gray-500">
                       Currently at Question #{quizState.rapidFireState.questionIndex + 1}
@@ -824,7 +851,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
             )}
 
             {/* Turn Setup for non-MCQ / non-Rapid Fire rounds when no active question */}
-            {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && !quizState?.activeQuestion && (
+            {activeRound?.type !== "MCQ" && activeRound?.type !== "RAPID_FIRE" && activeRound?.type !== "BUZZER" && !quizState?.activeQuestion && (
               <div className="bg-black/35 p-5 border border-white/5 rounded-xl space-y-3">
                 <h3 className="text-sm font-bold text-gray-300">Active Turn Setup</h3>
                 <div className="flex flex-col gap-3 sm:flex-row">

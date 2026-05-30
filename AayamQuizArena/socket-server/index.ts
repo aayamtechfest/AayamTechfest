@@ -542,12 +542,18 @@ io.on("connection", (socket) => {
       if (question.round?.type === "RAPID_FIRE" && cache.rapidFireState?.isRunning) {
         const rfState = cache.rapidFireState;
         
-        // Verify sender belongs to active team
+        // Verify sender belongs to active team/participant
         const sender = await prisma.quizParticipant.findUnique({
           where: { id: participantId },
           select: { teamId: true },
         });
-        if (sender?.teamId !== rfState.activeTeamId) return;
+        if (rfState.activeTeamId) {
+          if (sender?.teamId !== rfState.activeTeamId) return;
+        } else if (rfState.activeParticipantId) {
+          if (participantId !== rfState.activeParticipantId) return;
+        } else {
+          return;
+        }
 
         let isCorrect = false;
         if (selectedOptionId) {
@@ -616,6 +622,8 @@ io.on("connection", (socket) => {
         if (rfState.questionIndex < roundQuestions.length) {
           cache.activeQuestionId = roundQuestions[rfState.questionIndex].id;
           rfState.questionTimeLeft = rfState.config.questionTimeLimit;
+          cache.questionStartedAt = new Date();
+          cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
         } else {
           rfState.isRunning = false;
           if (rfState.timerInterval) clearInterval(rfState.timerInterval);

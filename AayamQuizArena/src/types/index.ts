@@ -92,6 +92,7 @@ export interface RealtimeQuizState {
   currentRoundTitle: string | null;
   currentRoundType: "MCQ" | "BUZZER" | "HAND_RAISE" | "RAPID_FIRE" | "TEAM_ANSWER" | "PASS_TO_MEMBER" | "PASS_ROUND" | null;
   buzzerOpen?: boolean;
+  questionCompleted?: boolean;
   rapidFireState?: {
     activeTeamId: string | null;
     activeParticipantId: string | null;

@@ -188,7 +188,13 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                   Traditional Rapid Fire Round
                 </span>
                 <h2 className="text-4xl font-extrabold font-heading text-white">
-                  Active Team: <span className="text-amber-400 font-black">{state.rapidFireState?.activeTeamId ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name : "Not Configured"}</span>
+                  Active Contestant: <span className="text-amber-400 font-black">
+                    {state.rapidFireState?.activeTeamId 
+                      ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name 
+                      : (state.rapidFireState?.activeParticipantId 
+                          ? state.participants.find(p => p.id === state.rapidFireState?.activeParticipantId)?.displayName 
+                          : "Not Configured")}
+                  </span>
                 </h2>
               </div>
 
