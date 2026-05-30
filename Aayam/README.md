@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/aayamtechfest/AayamTechfest">
-    <img src="https://github.com/aayamtechfest/AayamTechfest/raw/main/public/LogoGIF.gif" alt="AAYAM Logo" width="128" height="128" style="border-radius: 50.5rem; border: 1px solid rgba(255,255,255,0.15);" />
+    <img src="https://github.com/aayamtechfest/AayamTechfest/raw/main/Aayam/public/LogoGIF.gif" alt="AAYAM Logo" width="128" height="128" style="border-radius: 50.5rem; border: 1px solid rgba(255,255,255,0.15);" />
   </a>
 </p>
 

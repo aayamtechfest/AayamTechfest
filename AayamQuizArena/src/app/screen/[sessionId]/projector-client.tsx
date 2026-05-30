@@ -148,6 +148,9 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                 <p className="text-base text-gray-400 max-w-md mx-auto">
                   Go to <span className="text-indigo-300 font-bold">{process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002"}/join</span> on your device to connect.
                 </p>
+                <p className="text-xs text-gray-500 font-medium">
+                  Watch Live Rankings: <span className="text-indigo-400 font-mono font-bold">{(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002").replace(/^https?:\/\//, "")}/l/{session.accessCode}</span>
+                </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold uppercase tracking-wider bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
                 <Activity className="h-4 w-4 animate-ping text-emerald-400" />

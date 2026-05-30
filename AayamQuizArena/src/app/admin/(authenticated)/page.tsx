@@ -261,7 +261,7 @@ export default async function AdminDashboardPage() {
                 Distribute the URL below to students so they can join live games on their mobile devices:
               </p>
               <div className="bg-black/30 border border-white/10 px-3 py-2 rounded-lg font-mono text-xs text-indigo-300 truncate">
-                http://localhost:3002/join
+                {process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002"}/join
               </div>
             </div>
           </div>

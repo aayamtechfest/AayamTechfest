@@ -5,6 +5,7 @@ import { sessionSchema } from "@/schemas/session.schema";
 import { generateAccessCode } from "@/lib/quiz-utils";
 import { revalidatePath } from "next/cache";
 import type { ActionResponse, QuizSessionWithDetails } from "@/types";
+import { sendSessionLiveEmails, sendSessionResultEmails } from "@/lib/email";
 
 export async function getSessions(): Promise<QuizSessionWithDetails[]> {
   try {
@@ -221,6 +222,18 @@ export async function updateSessionStatus(
       where: { id },
       data: updateData,
     });
+
+    if (status === "ACTIVE") {
+      // Send invitation emails to all registered participants (non-blocking)
+      sendSessionLiveEmails(id).catch((err) => {
+        console.error("[Email] Error in sendSessionLiveEmails background task:", err);
+      });
+    } else if (status === "COMPLETED") {
+      // Send results emails to all session participants (non-blocking)
+      sendSessionResultEmails(id).catch((err) => {
+        console.error("[Email] Error in sendSessionResultEmails background task:", err);
+      });
+    }
 
     revalidatePath(`/admin/sessions/${id}`);
     revalidatePath("/admin/sessions");

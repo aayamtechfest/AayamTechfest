@@ -50,8 +50,7 @@ AayamQuizArena/
 │   ├── index.ts            # Server entry point and Socket handlers
 │   └── tsconfig.json
 ├── prisma/                 # Database schema definitions
-├── src/                    # Next.js 16 frontend and admin portal
-└── DEPLOYMENT.md           # Production deployment checklist
+└── src/                    # Next.js 16 frontend and admin portal
 ```
 
 ### 2. Environment Variables
@@ -90,4 +89,4 @@ docker build -f socket-server/Dockerfile -t aayam-quiz-socket .
 docker run -p 3001:3001 --env-file .env aayam-quiz-socket
 ```
 
-For complete production deploy setups on **Vercel** and **Render**, check out the [DEPLOYMENT.md](DEPLOYMENT.md) guide.
+For complete production deploy setups, configure Vercel for the frontend and Render for the Docker Socket.IO server.

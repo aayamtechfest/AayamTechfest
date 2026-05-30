@@ -1,18 +1,57 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { joinSessionAction } from "@/actions/participant.actions";
 import { toast } from "sonner";
 import { LogIn, Key, Award, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function JoinLobbyPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-[#0f0f23]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      </div>
+    }>
+      <JoinLobbyContent />
+    </Suspense>
+  );
+}
+
+function JoinLobbyContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const [registrationCode, setRegistrationCode] = useState("");
   const [accessCode, setAccessCode] = useState("");
+
+  // Process auto-join URL parameters if provided
+  useEffect(() => {
+    const regParam = searchParams.get("regCode");
+    const accessParam = searchParams.get("accessCode");
+
+    if (regParam) setRegistrationCode(regParam);
+    if (accessParam) setAccessCode(accessParam);
+
+    if (regParam && accessParam) {
+      startTransition(async () => {
+        const res = await joinSessionAction({
+          registrationCode: regParam.trim(),
+          accessCode: accessParam.trim(),
+        });
+
+        if (res.success && res.data) {
+          toast.success("Joined lobby successfully!");
+          localStorage.setItem(`session_${res.data.sessionId}_player`, res.data.participantId);
+          router.push(`/lobby/${res.data.sessionId}?participantId=${res.data.participantId}`);
+        } else {
+          toast.error(res.error || "Failed to join session.");
+        }
+      });
+    }
+  }, [searchParams, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
