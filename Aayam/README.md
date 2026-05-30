@@ -4,10 +4,12 @@
   </a>
 </p>
 
-<h1 align="center">AAYAM</h1>
+<h1 align="center">AAYAM — Events Management Portal</h1>
 
 <p align="center">
   <strong>The Premier University Event &amp; Hackathon Management Platform</strong>
+  <br />
+  <em>(Part of the AayamTechfest Monorepo under <code>/Aayam</code>)</em>
   <br />
   Developed &amp; Maintained by <a href="https://github.com/mdwarishansari/"><strong>@mdwarishansari</strong></a> 🧑‍💻
   <br />
