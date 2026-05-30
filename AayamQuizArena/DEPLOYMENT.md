@@ -28,8 +28,9 @@ The Socket.IO server is deployed to Render using a Docker container.
 * **Git Repository URL**: `https://github.com/aayamtechfest/AayamTechfest.git`
 * **Service Type**: Web Service
 * **Runtime**: `Docker`
-* **Root Directory**: `AayamQuizArena` (This is critical because the Next.js app and socket server are in a subdirectory. Setting this ensures the Docker build context is set to `AayamQuizArena` which contains the database schema and packages)
-* **Dockerfile Path**: `socket-server/Dockerfile`
+* **Root Directory**: `AayamQuizArena` (This ensures Render executes commands from the `AayamQuizArena` subfolder, where the database schema and packages live)
+* **Dockerfile Path**: `socket-server/Dockerfile` (Relative to the Root Directory `AayamQuizArena`)
+* **Docker Build Context Directory**: `.` (Relative to the Root Directory `AayamQuizArena`. Do NOT set this to `socket-server`, as the build requires access to the parent `prisma` folder to generate the database client!)
 * **Instance Type**: Any container tier (e.g. Free or Starter)
 * **Auto-Deploy**: Enabled (Optional)
 
