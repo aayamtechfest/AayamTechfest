@@ -69,6 +69,11 @@ interface RealtimeQuizStateCache {
       correct: number;
       wrong: number;
       score: number;
+      history?: {
+        questionText: string;
+        isCorrect: boolean;
+        pointsAwarded: number;
+      }[];
     };
   };
   passRoundState?: {
