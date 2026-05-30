@@ -206,6 +206,11 @@ export async function createSession(data: Record<string, any>): Promise<ActionRe
       return sess;
     });
 
+    // Non-blocking trigger of live invite emails when the lobby is spawned
+    sendSessionLiveEmails(session.id).catch((error) => {
+      console.error("[Email] Failed to send live session invite emails:", error);
+    });
+
     revalidatePath("/admin/sessions");
     return { success: true, data: session.id };
   } catch (error) {

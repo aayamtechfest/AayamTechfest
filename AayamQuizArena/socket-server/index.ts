@@ -574,6 +574,15 @@ io.on("connection", (socket) => {
         else rfState.stats.wrong++;
         rfState.stats.score += pointsAwarded;
 
+        if (!rfState.stats.history) {
+          rfState.stats.history = [];
+        }
+        rfState.stats.history.push({
+          questionText: question.text,
+          isCorrect,
+          pointsAwarded,
+        });
+
         await prisma.$transaction(async (tx) => {
           await tx.quizAnswer.create({
             data: {
@@ -920,6 +929,7 @@ io.on("connection", (socket) => {
           correct: 0,
           wrong: 0,
           score: 0,
+          history: [],
         }
       };
 
@@ -971,6 +981,18 @@ io.on("connection", (socket) => {
           if (rfState.questionTimeLeft <= 0) {
             rfState.stats.attempted++;
             rfState.stats.wrong++;
+
+            const curQ = roundQuestions[rfState.questionIndex];
+            if (curQ) {
+              if (!rfState.stats.history) {
+                rfState.stats.history = [];
+              }
+              rfState.stats.history.push({
+                questionText: curQ.text,
+                isCorrect: false,
+                pointsAwarded: 0,
+              });
+            }
             
             rfState.questionIndex++;
             if (rfState.questionIndex < roundQuestions.length) {
@@ -1023,6 +1045,28 @@ io.on("connection", (socket) => {
       else if (status === "WRONG") rfState.stats.wrong++;
 
       rfState.stats.score += pointsAwarded;
+
+      let questionText = "Question";
+      try {
+        const questionObj = await prisma.quizQuestion.findUnique({
+          where: { id: questionId },
+          select: { text: true },
+        });
+        if (questionObj) {
+          questionText = questionObj.text;
+        }
+      } catch (err) {
+        console.error("Error fetching question text for history:", err);
+      }
+
+      if (!rfState.stats.history) {
+        rfState.stats.history = [];
+      }
+      rfState.stats.history.push({
+        questionText,
+        isCorrect: status === "CORRECT",
+        pointsAwarded,
+      });
 
       await prisma.$transaction(async (tx) => {
         let targetPid = participantId;

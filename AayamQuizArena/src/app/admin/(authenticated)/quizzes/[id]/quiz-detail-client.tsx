@@ -374,6 +374,20 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     ]
   },
   {
+    "text": "Which of the following is a client-side React Hook?",
+    "type": "MCQ",
+    "timeLimit": 15,
+    "points": 10,
+    "roundNumber": 2,
+    "roundTitle": "Buzzer Round",
+    "roundType": "BUZZER",
+    "options": [
+      { "text": "useState", "isCorrect": true },
+      { "text": "useServerAction", "isCorrect": false },
+      { "text": "fs.readFile", "isCorrect": false }
+    ]
+  },
+  {
     "text": "React 19 was released in 2024.",
     "type": "TRUE_FALSE",
     "timeLimit": 15,
@@ -381,6 +395,19 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     "roundNumber": 2,
     "roundTitle": "Buzzer Round",
     "roundType": "BUZZER",
+    "options": [
+      { "text": "True", "isCorrect": true },
+      { "text": "False", "isCorrect": false }
+    ]
+  },
+  {
+    "text": "Is HTTP/3 based on UDP?",
+    "type": "TRUE_FALSE",
+    "timeLimit": 10,
+    "points": 10,
+    "roundNumber": 3,
+    "roundTitle": "Rapid Fire Round",
+    "roundType": "RAPID_FIRE",
     "options": [
       { "text": "True", "isCorrect": true },
       { "text": "False", "isCorrect": false }

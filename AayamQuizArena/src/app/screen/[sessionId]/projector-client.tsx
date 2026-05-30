@@ -182,12 +182,29 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
             </div>
           ) : state?.currentRoundType === "RAPID_FIRE" ? (
             /* ─────────── RAPID FIRE PROJECTOR VIEW ─────────── */
-            <div className="flex-1 flex flex-col justify-between space-y-6 text-center">
-              <div className="space-y-4">
-                <span className="text-xs uppercase font-bold text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 tracking-wider">
-                  Traditional Rapid Fire Round
-                </span>
-                <h2 className="text-4xl font-extrabold font-heading text-white">
+            <div className="flex-1 flex flex-col justify-between space-y-6">
+              <div className="space-y-4 border-b border-white/5 pb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase font-bold text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 tracking-wider">
+                    Rapid Fire Round
+                  </span>
+                  {state.rapidFireState?.isRunning && (
+                    <div className="flex items-center gap-3">
+                      {/* Round Timer */}
+                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 px-3.5 py-1.5 rounded-xl text-red-400 font-mono font-black text-sm">
+                        <Clock className="h-4 w-4 animate-pulse" />
+                        <span>Round: {state.rapidFireState.timeLeft}s</span>
+                      </div>
+                      {/* Question Timer */}
+                      <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3.5 py-1.5 rounded-xl text-amber-400 font-mono font-black text-sm">
+                        <Clock className="h-4 w-4" />
+                        <span>Question: {state.rapidFireState.questionTimeLeft}s</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <h2 className="text-3xl font-extrabold font-heading text-white">
                   Active Contestant: <span className="text-amber-400 font-black">
                     {state.rapidFireState?.activeTeamId 
                       ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name 
@@ -199,20 +216,65 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
               </div>
 
               {state.rapidFireState?.isRunning ? (
-                <div className="flex-1 flex flex-col justify-center items-center space-y-6">
-                  {/* Big ticking clock */}
-                  <div className="relative flex items-center justify-center h-44 w-44 rounded-full border-4 border-red-500/30 bg-black/25">
-                    <Clock className="absolute top-10 h-7 w-7 text-red-500 animate-pulse" />
-                    <span className="text-5xl font-mono font-black text-white mt-4">{state.rapidFireState.timeLeft}s</span>
-                  </div>
-                  <div className="text-lg text-gray-400 max-w-lg leading-relaxed font-semibold">
-                    Question Index: #{state.rapidFireState.questionIndex + 1}
-                  </div>
+                <div className="flex-1 flex flex-col justify-center space-y-6 animate-fade-in">
+                  {state.activeQuestion ? (
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
+                          Question #{state.rapidFireState.questionIndex + 1}
+                        </span>
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-white leading-relaxed font-heading">
+                          {state.activeQuestion.text}
+                        </h3>
+                      </div>
+
+                      {/* Render question options if any */}
+                      {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {state.activeQuestion.options.map((opt, idx) => {
+                            const prefix = String.fromCharCode(65 + idx);
+                            return (
+                              <div
+                                key={opt.id}
+                                className="flex items-center gap-3 border px-4 py-3.5 rounded-xl text-sm font-bold bg-white/5 border-white/10 text-gray-300"
+                              >
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  {prefix}
+                                </span>
+                                <span className="truncate">{opt.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Zap className="h-10 w-10 text-gray-600 animate-pulse mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">Loading round questions...</p>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col justify-center items-center space-y-4">
-                  <Flame className="h-16 w-16 text-gray-600" />
-                  <p className="text-lg text-gray-400">Timer is paused. Host is preparing team questions.</p>
+                <div className="flex-1 flex flex-col justify-center items-center space-y-6 bg-black/25 border border-white/5 rounded-3xl p-8">
+                  <Flame className="h-16 w-16 text-amber-500 animate-pulse" />
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-bold text-white font-heading">Ready for Rapid Fire</h3>
+                    <p className="text-sm text-gray-400 max-w-sm">
+                      Setup complete. Once the host starts, questions will auto-timeout and cycle sequentially.
+                    </p>
+                  </div>
+                  <div className="flex gap-4 text-xs font-semibold text-gray-400 bg-white/5 border border-white/5 px-4 py-2 rounded-2xl">
+                    <span>Round time: {state.rapidFireState?.config?.totalRoundTime || 60}s</span>
+                    <span>&bull;</span>
+                    <span>Per question: {state.rapidFireState?.config?.questionTimeLimit || 10}s</span>
+                    {state.rapidFireState?.config?.negativeMarking && (
+                      <>
+                        <span>&bull;</span>
+                        <span className="text-red-400 font-bold uppercase">Negative Marking Enabled</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -284,12 +346,21 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                 <div className="grid gap-3 sm:grid-cols-2 pt-6">
                   {state.activeQuestion.options.map((opt, idx) => {
                     const prefix = String.fromCharCode(65 + idx);
+                    const isRevealedCorrect = state.currentRoundType !== "BUZZER" && revealedOptionId === opt.id;
                     return (
                       <div
                         key={opt.id}
-                        className="flex items-center gap-3 border px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 bg-white/5 border-white/10 text-gray-300"
+                        className={`flex items-center gap-3 border px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 ${
+                          isRevealedCorrect
+                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold shadow-[0_0_15px_rgba(16,185,129,0.15)] animate-pulse"
+                            : "bg-white/5 border-white/10 text-gray-300"
+                        }`}
                       >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold ${
+                          isRevealedCorrect
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                        }`}>
                           {prefix}
                         </span>
                         <span className="truncate">{opt.text}</span>
@@ -353,58 +424,127 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
           )}
         </div>
 
-        {/* Right 30%: Live scoreboard (Top 8) */}
+        {/* Right 30%: Live scoreboard (Top 8) OR Rapid Fire details */}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl flex flex-col justify-between min-h-[450px]">
-          <div>
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2 mb-4">
-              <Trophy className="h-4 w-4 text-amber-400" />
-              Leaderboard (Top Ranks)
-            </h2>
+          {state?.currentRoundType === "RAPID_FIRE" && state.rapidFireState ? (
+            <div className="flex-1 flex flex-col justify-between h-full space-y-4">
+              <div className="space-y-4">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+                  <Flame className="h-4 w-4 text-amber-500 animate-pulse" />
+                  Rapid Fire Performance
+                </h2>
 
-            <div className="space-y-2">
-              {sortedEntities.map((item, index) => {
-                const rank = index + 1;
-                const isTop3 = rank <= 3;
-                const badgeColor =
-                  rank === 1
-                    ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
-                    : rank === 2
-                    ? "bg-slate-400/10 border-slate-400/30 text-slate-400"
-                    : "bg-amber-700/10 border-amber-700/30 text-amber-700";
-
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between border border-white/5 bg-black/35 p-3 rounded-xl text-sm animate-fade-in"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                          isTop3 ? badgeColor : "bg-white/5 border border-white/5 text-gray-500"
-                        }`}
-                      >
-                        {rank}
-                      </span>
-                      <span className="font-semibold text-white truncate max-w-[150px]">
-                        {isTeam ? (item as any).name : (item as any).displayName}
-                      </span>
-                    </div>
-
-                    <span className="font-mono font-bold text-indigo-400 shrink-0">
-                      {item.score} pt
-                    </span>
+                {/* Score Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/5 border border-white/5 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-gray-500 uppercase block font-bold">Attempted</span>
+                    <span className="text-lg font-black text-white">{state.rapidFireState.stats?.attempted || 0}</span>
                   </div>
-                );
-              })}
-
-              {sortedEntities.length === 0 && (
-                <div className="text-center py-12 text-xs text-gray-500">
-                  Lobby is empty. Connect players to start scoring.
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-emerald-400/70 uppercase block font-bold">Correct</span>
+                    <span className="text-lg font-black text-emerald-400">{state.rapidFireState.stats?.correct || 0}</span>
+                  </div>
+                  <div className="bg-indigo-500/10 border border-indigo-500/20 p-2 rounded-xl text-center">
+                    <span className="text-[9px] text-indigo-400/70 uppercase block font-bold">Points</span>
+                    <span className="text-lg font-black text-indigo-300">{state.rapidFireState.stats?.score || 0}</span>
+                  </div>
                 </div>
-              )}
-          </div>
+
+                {/* History Log */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Live Question Log:</h3>
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                    {state.rapidFireState.stats?.history && state.rapidFireState.stats.history.length > 0 ? (
+                      state.rapidFireState.stats.history.map((h, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-2 border p-3 rounded-xl text-xs ${
+                            h.isCorrect
+                              ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-300"
+                              : "bg-red-500/5 border-red-500/20 text-red-300"
+                          }`}
+                        >
+                          <span className="mt-0.5 text-base leading-none">
+                            {h.isCorrect ? "✅" : "❌"}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold truncate text-white">{h.questionText}</p>
+                            <span className="text-[10px] opacity-60">
+                              {h.pointsAwarded >= 0 ? `+${h.pointsAwarded}` : h.pointsAwarded} pts
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-10 border border-dashed border-white/5 rounded-xl text-xs text-gray-500">
+                        No responses logged yet...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-gray-500 text-center pt-2 border-t border-white/5">
+                Rapid Fire scores are synchronized instantly
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2 mb-4">
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                  Leaderboard (Top Ranks)
+                </h2>
+
+                <div className="space-y-2">
+                  {sortedEntities.map((item, index) => {
+                    const rank = index + 1;
+                    const isTop3 = rank <= 3;
+                    const badgeColor =
+                      rank === 1
+                        ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
+                        : rank === 2
+                        ? "bg-slate-400/10 border-slate-400/30 text-slate-400"
+                        : "bg-amber-700/10 border-amber-700/30 text-amber-700";
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between border border-white/5 bg-black/35 p-3 rounded-xl text-sm animate-fade-in"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                              isTop3 ? badgeColor : "bg-white/5 border border-white/5 text-gray-500"
+                            }`}
+                          >
+                            {rank}
+                          </span>
+                          <span className="font-semibold text-white truncate max-w-[150px]">
+                            {isTeam ? (item as any).name : (item as any).displayName}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-indigo-400 shrink-0">
+                          {item.score} pts
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {sortedEntities.length === 0 && (
+                    <div className="text-center py-12 text-xs text-gray-500">
+                      Lobby is empty. Connect players to start scoring.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-[10px] text-gray-500 text-center pt-4 border-t border-white/5">
+                Top ranks update dynamically in real time
+              </div>
+            </>
+          )}
         </div>
-      </div>
     </div>
       {/* Buzzer Countdown Overlay */}
       {buzzerCountdown !== null && (

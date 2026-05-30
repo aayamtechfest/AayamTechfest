@@ -227,9 +227,32 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
     toast.success("Rapid Fire team configured!");
   };
 
+  const handleStartRapidFireDirect = () => {
+    if (!selectedTeamId && !selectedParticipantId) {
+      toast.error("Please select a team or participant first");
+      return;
+    }
+    const socket = getSocket();
+    socket.emit("admin:set-rapid-fire-team", {
+      sessionId: session.id,
+      teamId: selectedTeamId,
+      participantId: selectedParticipantId,
+      config: {
+        totalRoundTime: rfTotalTime,
+        questionTimeLimit: rfQuestionTime,
+        pointsPerQuestion: rfPoints,
+        negativeMarking: rfNegativeMarking,
+      }
+    });
+    setTimeout(() => {
+      socket.emit("admin:start-rapid-fire-timer", { sessionId: session.id });
+    }, 50);
+    toast.success("Rapid Fire round started!");
+  };
+
   const handleStartRapidFireTimer = () => {
     getSocket().emit("admin:start-rapid-fire-timer", { sessionId: session.id });
-    toast.success("60s Rapid Fire timer started!");
+    toast.success(`${rfTotalTime}s Rapid Fire timer started!`);
   };
 
   const handleEvaluateRapidFire = (questionId: string, status: "CORRECT" | "WRONG" | "SKIP") => {
@@ -553,8 +576,8 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   {quizState.activeQuestion.text}
                 </h3>
 
-                {/* MCQ Options (Only displayed for Simultaneous Round) */}
-                {activeRound?.type === "MCQ" && quizState.activeQuestion.options.length > 0 && (
+                {/* Options (Displayed for MCQ / Buzz Round) */}
+                {(activeRound?.type === "MCQ" || activeRound?.type === "BUZZER") && quizState.activeQuestion.options.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2 pt-2">
                     {quizState.activeQuestion.options.map((opt) => {
                       const fullOpt = fullActiveQuestion?.options.find((o: any) => o.id === opt.id);
@@ -760,58 +783,66 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 )}
 
                  {/* Team / Participant selection */}
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {session.quiz.mode === "TEAM" ? (
-                    <select
-                      value={selectedTeamId}
-                      onChange={(e) => {
-                        setSelectedTeamId(e.target.value);
-                        setSelectedParticipantId("");
-                      }}
-                      className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
-                    >
-                      <option value="">-- Select Active Team --</option>
-                      {quizState?.teams.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select
-                      value={selectedParticipantId}
-                      onChange={(e) => {
-                        setSelectedParticipantId(e.target.value);
-                        setSelectedTeamId("");
-                      }}
-                      className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
-                    >
-                      <option value="">-- Select Active Participant --</option>
-                      {quizState?.participants.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.displayName} ({p.registrationNumber || "Solo"})
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                 <div className="flex flex-col gap-3 sm:flex-row">
+                   {session.quiz.mode === "TEAM" ? (
+                     <select
+                       value={selectedTeamId}
+                       onChange={(e) => {
+                         setSelectedTeamId(e.target.value);
+                         setSelectedParticipantId("");
+                       }}
+                       className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                     >
+                       <option value="">-- Select Active Team --</option>
+                       {((quizState?.teams && quizState.teams.length > 0) ? quizState.teams : session.teams).map((t: any) => (
+                         <option key={t.id} value={t.id}>
+                           {t.name}
+                         </option>
+                       ))}
+                     </select>
+                   ) : (
+                     <select
+                       value={selectedParticipantId}
+                       onChange={(e) => {
+                         setSelectedParticipantId(e.target.value);
+                         setSelectedTeamId("");
+                       }}
+                       className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                     >
+                       <option value="">-- Select Active Participant --</option>
+                       {((quizState?.participants && quizState.participants.length > 0) ? quizState.participants : session.participants).map((p: any) => (
+                         <option key={p.id} value={p.id}>
+                           {p.displayName || p.registration?.participantName} ({p.registrationNumber || p.registration?.registrationId || "Solo"})
+                         </option>
+                       ))}
+                     </select>
+                   )}
 
-                  <button
-                    onClick={handleSetRapidFireTeam}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl text-xs"
-                  >
-                    Configure Team
-                  </button>
+                   <button
+                     onClick={handleStartRapidFireDirect}
+                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1 shadow-lg shadow-emerald-500/20"
+                   >
+                     <Play className="h-3 w-3" />
+                     Start Rapid Fire
+                   </button>
 
-                  {quizState?.rapidFireState && !quizState.rapidFireState.isRunning && (
-                    <button
-                      onClick={handleStartRapidFireTimer}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1"
-                    >
-                      <Play className="h-3 w-3" />
-                      Start Timer
-                    </button>
-                  )}
-                </div>
+                   <button
+                     onClick={handleSetRapidFireTeam}
+                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl text-xs"
+                   >
+                     Configure Only
+                   </button>
+
+                   {quizState?.rapidFireState && !quizState.rapidFireState.isRunning && (
+                     <button
+                       onClick={handleStartRapidFireTimer}
+                       className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1"
+                     >
+                       <Play className="h-3 w-3" />
+                       Resume Timer
+                     </button>
+                   )}
+                 </div>
 
                 {quizState?.rapidFireState && (
                   <div className="border-t border-white/5 pt-3 space-y-2 text-xs">

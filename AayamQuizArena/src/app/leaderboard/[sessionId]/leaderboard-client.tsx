@@ -31,12 +31,26 @@ export function LeaderboardClient({ session }: LeaderboardClientProps) {
     };
   }, [session.id]);
 
-  const isTeam = state?.quizMode === "TEAM";
+  const isTeam = state ? state.quizMode === "TEAM" : session.quiz.mode === "TEAM";
 
-  // Get sorted list of ranks
+  // Get sorted list of ranks with fallback to static session database scores
   const sortedEntities = isTeam
-    ? [...(state?.teams || [])].sort((a, b) => b.score - a.score)
-    : [...(state?.participants || [])].sort((a, b) => b.score - a.score);
+    ? (state
+        ? [...(state.teams || [])].sort((a, b) => b.score - a.score)
+        : [...(session.teams || [])].map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            color: t.color,
+            score: t.totalScore || 0
+          })).sort((a: any, b: any) => b.score - a.score))
+    : (state
+        ? [...(state.participants || [])].sort((a, b) => b.score - a.score)
+        : [...(session.participants || [])].map((p: any) => ({
+            id: p.id,
+            displayName: p.displayName,
+            registrationNumber: p.registration?.registrationId || "Solo",
+            score: p.totalScore || 0
+          })).sort((a: any, b: any) => b.score - a.score));
 
   const podium = sortedEntities.slice(0, 3);
   const remaining = sortedEntities.slice(3);
