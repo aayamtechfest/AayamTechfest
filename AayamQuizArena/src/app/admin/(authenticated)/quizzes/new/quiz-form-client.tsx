@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { quizSchema, QuizInput } from "@/schemas/quiz.schema";
 import { createQuiz, updateQuiz } from "@/actions/quiz.actions";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Lock } from "lucide-react";
 import Link from "next/link";
 
 interface QuizFormClientProps {
@@ -19,6 +19,7 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEdit = !!initialData;
+  const isArchived = initialData?.status === "ARCHIVED";
 
   const {
     register,
@@ -46,12 +47,18 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
   });
 
   const onSubmit = async (data: QuizInput) => {
+    // Convert empty eventId to null for the database
+    const cleanedData = {
+      ...data,
+      eventId: data.eventId || null,
+    };
+
     startTransition(async () => {
       let res;
       if (isEdit) {
-        res = await updateQuiz(initialData.id, data);
+        res = await updateQuiz(initialData.id, cleanedData);
       } else {
-        res = await createQuiz(data);
+        res = await createQuiz(cleanedData);
       }
 
       if (res.success) {
@@ -85,6 +92,16 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+        {isArchived && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400">
+            <Lock className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold block">Quiz is Archived</span>
+              To make changes to general settings, please revert its status to Draft first using the status bar above.
+            </div>
+          </div>
+        )}
+
         {/* Name */}
         <div className="space-y-1.5">
           <label htmlFor="name" className="block text-sm font-medium text-gray-300">
@@ -94,9 +111,9 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
             id="name"
             type="text"
             placeholder="e.g. CodeQuest Round 1"
-            disabled={isPending}
+            disabled={isPending || isArchived}
             {...register("name")}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none transition-colors focus:border-indigo-500"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none transition-colors focus:border-indigo-500 disabled:opacity-50"
           />
           {errors.name && (
             <p className="text-xs text-red-400">{errors.name.message}</p>
@@ -112,9 +129,9 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
             id="description"
             rows={3}
             placeholder="Introduce the quiz rules, themes, or structure..."
-            disabled={isPending}
+            disabled={isPending || isArchived}
             {...register("description")}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none transition-colors focus:border-indigo-500 resize-none"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder-gray-500 outline-none transition-colors focus:border-indigo-500 resize-none disabled:opacity-50"
           />
           {errors.description && (
             <p className="text-xs text-red-400">{errors.description.message}</p>
@@ -129,9 +146,9 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
             </label>
             <select
               id="mode"
-              disabled={isPending}
+              disabled={isPending || isArchived}
               {...register("mode")}
-              className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500"
+              className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500 disabled:opacity-50"
             >
               <option value="SOLO">Solo (Individual players)</option>
               <option value="TEAM">Team (Aggregated registration teams)</option>
@@ -148,9 +165,9 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
             </label>
             <select
               id="status"
-              disabled={isPending}
+              disabled={isPending || isArchived}
               {...register("status")}
-              className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500"
+              className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500 disabled:opacity-50"
             >
               <option value="DRAFT">Draft</option>
               <option value="PUBLISHED">Published</option>
@@ -169,9 +186,9 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
           </label>
           <select
             id="eventId"
-            disabled={isPending}
+            disabled={isPending || isArchived}
             {...register("eventId")}
-            className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500"
+            className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none transition-colors focus:border-indigo-500 disabled:opacity-50"
           >
             <option value="">No associated event (Standalone Quiz)</option>
             {events.map((evt) => (
@@ -186,23 +203,25 @@ export function QuizFormClient({ events, initialData }: QuizFormClientProps) {
         </div>
 
         {/* Action button */}
-        <button
-          type="submit"
-          disabled={isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:bg-indigo-500 hover:shadow-indigo-500/40 disabled:opacity-50"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-5 w-5" />
-              <span>{isEdit ? "Update Quiz" : "Create Quiz"}</span>
-            </>
-          )}
-        </button>
+        {!isArchived && (
+          <button
+            type="submit"
+            disabled={isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:bg-indigo-500 hover:shadow-indigo-500/40 disabled:opacity-50"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                <span>{isEdit ? "Update Quiz" : "Create Quiz"}</span>
+              </>
+            )}
+          </button>
+        )}
       </form>
     </div>
   );

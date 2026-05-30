@@ -90,7 +90,20 @@ export interface RealtimeQuizState {
   currentRoundId: string | null;
   currentRoundNumber: number | null;
   currentRoundTitle: string | null;
-  currentRoundType: "MCQ" | "BUZZER" | "HAND_RAISE" | "RAPID_FIRE" | "TEAM_ANSWER" | "PASS_TO_MEMBER" | null;
+  currentRoundType: "MCQ" | "BUZZER" | "HAND_RAISE" | "RAPID_FIRE" | "TEAM_ANSWER" | "PASS_TO_MEMBER" | "PASS_ROUND" | null;
+  buzzerOpen?: boolean;
+  rapidFireState?: {
+    activeTeamId: string | null;
+    activeParticipantId: string | null;
+    timeLeft: number;
+    isRunning: boolean;
+    questionIndex: number;
+  };
+  passRoundState?: {
+    activeTeamId: string | null;
+    activeParticipantId: string | null;
+    passCount: number;
+  };
   
   // Active Question Info (null if not running/showing)
   activeQuestion: {

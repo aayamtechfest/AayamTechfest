@@ -26,6 +26,10 @@ import {
   Sparkles,
   Loader2,
   Settings,
+  Layers,
+  Zap,
+  ChevronRight,
+  Clock,
 } from "lucide-react";
 import { RealtimeQuizState } from "@/types";
 
@@ -47,9 +51,12 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   const [scoreDelta, setScoreDelta] = useState(10);
   const [correctionNote, setCorrectionNote] = useState("");
 
+  // Rapid Fire and Pass Round admin inputs
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string>("");
+
   useEffect(() => {
     const socket = getSocket();
-
     socket.connect();
 
     socket.on("connect", () => {
@@ -95,6 +102,10 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       if (res.success) {
         getSocket().emit("admin:start-session", { sessionId: session.id });
         toast.success("Quiz session active!");
+        // Auto-activate first round
+        if (session.rounds.length > 0) {
+          handleStartRound(session.rounds[0].id);
+        }
       }
     });
   };
@@ -135,7 +146,8 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       const res = await updateRoundStatus(roundId, "ACTIVE");
       if (res.success) {
         getSocket().emit("admin:start-round", { sessionId: session.id, roundId });
-        toast.success("Round started!");
+        toast.success("Round activated!");
+        router.refresh();
       }
     });
   };
@@ -146,13 +158,14 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       if (res.success) {
         getSocket().emit("admin:end-round", { sessionId: session.id, roundId });
         toast.success("Round completed!");
+        router.refresh();
       }
     });
   };
 
   const handlePushQuestion = (questionId: string) => {
     getSocket().emit("admin:push-question", { sessionId: session.id, questionId });
-    toast.success("Question pushed to players!");
+    toast.success("Question pushed to projector and players!");
   };
 
   const handleShowAnswer = () => {
@@ -160,9 +173,20 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
     toast.success("Correct answer revealed!");
   };
 
+  // Buzzer Round Controls
+  const handleOpenBuzzer = () => {
+    getSocket().emit("admin:open-buzzer", { sessionId: session.id });
+    toast.success("Buzzers are now open!");
+  };
+
+  const handleCloseBuzzer = () => {
+    getSocket().emit("admin:close-buzzer", { sessionId: session.id });
+    toast.success("Buzzers are closed.");
+  };
+
   const handleResetBuzzer = () => {
     getSocket().emit("admin:reset-buzzer", { sessionId: session.id });
-    toast.success("Buzzer reset!");
+    toast.success("Buzzer queue reset!");
   };
 
   const handleResolveBuzzer = (buzzerEventId: string, status: "ACCEPTED" | "REJECTED") => {
@@ -172,6 +196,70 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       status,
     });
     toast.success(`Buzzer marked as ${status.toLowerCase()}!`);
+  };
+
+  // Rapid Fire controls
+  const handleSetRapidFireTeam = () => {
+    if (!selectedTeamId && !selectedParticipantId) {
+      toast.error("Please select a team or participant first");
+      return;
+    }
+    getSocket().emit("admin:set-rapid-fire-team", {
+      sessionId: session.id,
+      teamId: selectedTeamId,
+      participantId: selectedParticipantId,
+    });
+    toast.success("Rapid Fire team configured!");
+  };
+
+  const handleStartRapidFireTimer = () => {
+    getSocket().emit("admin:start-rapid-fire-timer", { sessionId: session.id });
+    toast.success("60s Rapid Fire timer started!");
+  };
+
+  const handleEvaluateRapidFire = (questionId: string, status: "CORRECT" | "WRONG" | "SKIP") => {
+    getSocket().emit("admin:evaluate-rapid-fire", {
+      sessionId: session.id,
+      questionId,
+      status,
+    });
+    toast.info(`Question marked as ${status}`);
+  };
+
+  // Pass Round controls
+  const handleSetPassRoundTeam = () => {
+    if (!selectedTeamId && !selectedParticipantId) {
+      toast.error("Please select a team or participant first");
+      return;
+    }
+    getSocket().emit("admin:set-pass-round-team", {
+      sessionId: session.id,
+      teamId: selectedTeamId,
+      participantId: selectedParticipantId,
+    });
+    toast.success("Pass Round active team configured!");
+  };
+
+  const handleEvaluatePassRound = (questionId: string, status: "CORRECT" | "WRONG" | "PASS") => {
+    // Determine next team in circular order
+    let nextTId = "";
+    if (quizState?.teams && quizState.teams.length > 0) {
+      const currentIndex = quizState.teams.findIndex((t) => t.id === quizState.passRoundState?.activeTeamId);
+      if (currentIndex !== -1) {
+        const nextIndex = (currentIndex + 1) % quizState.teams.length;
+        nextTId = quizState.teams[nextIndex].id;
+      } else {
+        nextTId = quizState.teams[0].id;
+      }
+    }
+
+    getSocket().emit("admin:evaluate-pass-round", {
+      sessionId: session.id,
+      questionId,
+      status,
+      nextTeamId: nextTId,
+    });
+    toast.info(`Evaluated: ${status}`);
   };
 
   const handleApplyScoreCorrection = async () => {
@@ -189,7 +277,6 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
         toast.success("Score updated successfully!");
         setSelectedParticipant(null);
         setCorrectionNote("");
-        // Notify socket server to refresh states
         getSocket().emit("admin:trigger-score-sync", { sessionId: session.id });
         router.refresh();
       } else {
@@ -198,7 +285,18 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
     });
   };
 
+  // State mapping helper
   const activeRound = session.rounds.find((r: any) => r.id === quizState?.currentRoundId) || session.rounds[0];
+  const templateRoundId = activeRound?.settings?.templateRoundId;
+
+  // Filter questions that belong to the active round
+  const roundQuestions = session.quiz.questions.filter((q: any) => {
+    if (templateRoundId) {
+      return q.templateRoundId === templateRoundId;
+    }
+    return true;
+  });
+
   const fullActiveQuestion = quizState?.activeQuestion
     ? session.quiz.questions.find((q: any) => q.id === quizState.activeQuestion?.id)
     : null;
@@ -217,7 +315,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-white font-heading">
-              Live Session: {session.name}
+              Host Panel: {session.name}
             </h1>
             <span
               className={`h-2 w-2 rounded-full ${
@@ -225,7 +323,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
               }`}
             />
             <span className="text-xs text-gray-400">
-              {isConnected ? "Connected to Socket Server" : "Disconnected"}
+              {isConnected ? "Connected to Server" : "Disconnected"}
             </span>
           </div>
         </div>
@@ -238,7 +336,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10"
           >
             <Tv className="h-4 w-4 text-indigo-400" />
-            Projector Screen
+            Auditorium Projector
           </Link>
           <Link
             href={`/leaderboard/${session.id}`}
@@ -246,7 +344,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10"
           >
             <Tv className="h-4 w-4 text-purple-400" />
-            Public Leaderboard
+            Live Leaderboard
           </Link>
         </div>
       </div>
@@ -262,8 +360,10 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
           </div>
 
           <div className="hidden sm:block">
-            <span className="text-xs text-gray-500 block">Game Mode</span>
-            <span className="text-sm font-semibold text-white">{session.quiz.mode} competition</span>
+            <span className="text-xs text-gray-500 block">Round Strategy</span>
+            <span className="text-sm font-semibold text-indigo-300 uppercase tracking-wider">
+              {activeRound ? `${activeRound.title} (${activeRound.type === "MCQ" ? "Simultaneous" : activeRound.type})` : "General Round"}
+            </span>
           </div>
         </div>
 
@@ -320,22 +420,81 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
         </div>
       </div>
 
-      {/* Main Grid: control questions on left, participant listing on right */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left column: Live Controls, Active Question, and Buzzer logs */}
+      {/* Main Grid: Control panel */}
+      <div className="grid gap-6 lg:grid-cols-4">
+        
+        {/* Sidebar Left: Rounds tracker */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl space-y-4 h-fit">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+            <Layers className="h-4.5 w-4.5 text-indigo-400" />
+            Tournament Rounds
+          </h2>
+          <div className="space-y-2">
+            {session.rounds.map((r: any) => {
+              const isActive = quizState?.currentRoundId === r.id;
+              const isCompleted = r.status === "COMPLETED";
+
+              return (
+                <div
+                  key={r.id}
+                  className={`p-3 rounded-xl border text-xs transition-all ${
+                    isActive
+                      ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300 shadow-md shadow-indigo-500/5"
+                      : "bg-black/25 border-white/5 text-gray-400"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="truncate">R{r.roundNumber}: {r.title}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                      isActive ? "bg-indigo-500/20 text-indigo-300" : isCompleted ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-500"
+                    }`}>
+                      {isActive ? "Active" : isCompleted ? "Done" : "Pending"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">
+                    Mode: {r.type === "MCQ" ? "Simultaneous" : r.type}
+                  </p>
+
+                  {quizState?.status === "ACTIVE" && !isActive && (
+                    <button
+                      onClick={() => handleStartRound(r.id)}
+                      className="mt-2 w-full text-center font-bold bg-indigo-600/10 hover:bg-indigo-600 text-indigo-300 hover:text-white py-1 rounded border border-indigo-500/20 transition-all text-[10px] flex items-center justify-center gap-1"
+                    >
+                      Activate Round
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  {isActive && !isCompleted && (
+                    <button
+                      onClick={() => handleEndRound(r.id)}
+                      className="mt-2 w-full text-center font-bold bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1 rounded border border-emerald-500/20 transition-all text-[10px]"
+                    >
+                      Complete Round
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Mid: Active Round Controller */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Active Question panel */}
+          
+          {/* Main Active Question & Scoring controls */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4">
             <h2 className="text-lg font-bold text-white font-heading flex items-center gap-2">
               <Activity className="h-5 w-5 text-indigo-400" />
-              Active Question Controller
+              Active Controller: {activeRound?.title}
             </h2>
 
+            {/* Pushed Question box */}
             {quizState?.activeQuestion ? (
               <div className="space-y-4 bg-black/20 p-5 border border-white/5 rounded-xl">
                 <div className="flex items-center justify-between">
                   <span className="text-xs uppercase font-bold text-indigo-400 tracking-widest">
-                    Live Question ({quizState.activeQuestion.type})
+                    Pushed Question ({quizState.activeQuestion.type})
                   </span>
                   <div className="flex gap-2">
                     <span className="bg-white/5 px-2 py-0.5 rounded text-xs text-gray-400">
@@ -347,13 +506,13 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-white leading-relaxed">
+                <h3 className="text-base font-semibold text-white leading-relaxed">
                   {quizState.activeQuestion.text}
                 </h3>
 
-                {/* Show Choices */}
-                {quizState.activeQuestion.options.length > 0 && (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                {/* MCQ Options (Only displayed for Simultaneous Round) */}
+                {activeRound?.type === "MCQ" && quizState.activeQuestion.options.length > 0 && (
+                  <div className="grid gap-2 sm:grid-cols-2 pt-2">
                     {quizState.activeQuestion.options.map((opt) => {
                       const fullOpt = fullActiveQuestion?.options.find((o: any) => o.id === opt.id);
                       const isCorrect = fullOpt?.isCorrect;
@@ -379,72 +538,264 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   </div>
                 )}
 
-                {/* Controls for current question */}
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5">
-                  <button
-                    onClick={handleShowAnswer}
-                    disabled={isAnswerRevealed}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-white transition-all ${
-                      isAnswerRevealed
-                        ? "bg-emerald-600/50 border border-emerald-500/20 text-emerald-300 cursor-not-allowed"
-                        : "bg-indigo-600 hover:bg-indigo-500"
-                    }`}
-                  >
-                    {isAnswerRevealed ? "Answer Revealed" : "Reveal Correct Answer"}
-                  </button>
-
-                  {activeRound?.type === "BUZZER" && (
+                {/* Score Controls for MCQ (Reveal Correct) */}
+                {activeRound?.type === "MCQ" && (
+                  <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5">
                     <button
-                      onClick={handleResetBuzzer}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15 border border-white/10"
+                      onClick={handleShowAnswer}
+                      disabled={isAnswerRevealed}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-white transition-all ${
+                        isAnswerRevealed
+                          ? "bg-emerald-600/50 border border-emerald-500/20 text-emerald-300 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-500"
+                      }`}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Reset Buzzer
+                      {isAnswerRevealed ? "Answer Revealed" : "Reveal Correct Answer"}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* Buzzer Round controller */}
+                {activeRound?.type === "BUZZER" && (
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-400 uppercase">Buzzer Control Locks</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${quizState.buzzerOpen ? "bg-emerald-500/20 text-emerald-400 animate-pulse" : "bg-red-500/20 text-red-400"}`}>
+                        Buzzers: {quizState.buzzerOpen ? "Open" : "Locked"}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleOpenBuzzer}
+                        disabled={quizState.buzzerOpen}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2 px-3 rounded-lg text-xs"
+                      >
+                        Open Buzzer
+                      </button>
+                      <button
+                        onClick={handleCloseBuzzer}
+                        disabled={!quizState.buzzerOpen}
+                        className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold py-2 px-3 rounded-lg text-xs"
+                      >
+                        Lock/Close Buzzer
+                      </button>
+                      <button
+                        onClick={handleResetBuzzer}
+                        className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white py-2 px-3 rounded-lg text-xs"
+                      >
+                        Clear/Reset
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pass Round Controller */}
+                {activeRound?.type === "PASS_ROUND" && (
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-400 uppercase">Pass Round Turn</span>
+                      <span className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded">
+                        Active Turn: {quizState.passRoundState?.activeTeamId ? quizState.teams.find(t => t.id === quizState.passRoundState?.activeTeamId)?.name : "None"} 
+                        {quizState.passRoundState?.passCount && quizState.passRoundState.passCount > 0 ? ` (Passed x${quizState.passRoundState.passCount})` : ""}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEvaluatePassRound(quizState.activeQuestion!.id, "CORRECT")}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1"
+                      >
+                        <Check className="h-4 w-4" />
+                        Correct
+                      </button>
+                      <button
+                        onClick={() => handleEvaluatePassRound(quizState.activeQuestion!.id, "WRONG")}
+                        className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1"
+                      >
+                        <X className="h-4 w-4" />
+                        Wrong / No Points
+                      </button>
+                      <button
+                        onClick={() => handleEvaluatePassRound(quizState.activeQuestion!.id, "PASS")}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Pass Turn
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-10 text-center bg-black/10 border border-dashed border-white/10 rounded-xl">
-                <Play className="h-8 w-8 text-gray-600 mb-2 animate-bounce" />
-                <p className="text-sm text-gray-400">No active question pushed to screen.</p>
-                <p className="text-xs text-gray-500 mt-1">Select a question from the bank below to push.</p>
+                <Zap className="h-8 w-8 text-gray-600 mb-2 animate-pulse" />
+                <p className="text-sm text-gray-400">Question is currently hidden from screen.</p>
+                <p className="text-xs text-gray-500 mt-1">Select a question from the list below to push.</p>
               </div>
             )}
 
-            {/* Questions Bank list */}
+            {/* Rapid Fire Config & Ticker (Only for Rapid Fire Round) */}
+            {activeRound?.type === "RAPID_FIRE" && (
+              <div className="bg-black/35 p-5 border border-white/5 rounded-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5">
+                    <Flame className="h-4.5 w-4.5 text-amber-500" />
+                    Rapid Fire Active Console
+                  </h3>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${quizState?.rapidFireState?.isRunning ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/5 text-gray-500"}`}>
+                    Timer: {quizState?.rapidFireState?.timeLeft || 60}s
+                  </span>
+                </div>
+
+                {/* Team selection */}
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <select
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="">-- Select Active Team --</option>
+                    {quizState?.teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleSetRapidFireTeam}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl text-xs"
+                  >
+                    Configure Team
+                  </button>
+
+                  {quizState?.rapidFireState && !quizState.rapidFireState.isRunning && (
+                    <button
+                      onClick={handleStartRapidFireTimer}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1"
+                    >
+                      <Play className="h-3 w-3" />
+                      Start Timer
+                    </button>
+                  )}
+                </div>
+
+                {quizState?.rapidFireState && (
+                  <div className="border-t border-white/5 pt-3 space-y-2 text-xs">
+                    <p className="text-gray-400 font-semibold">
+                      Playing Team: <span className="text-white font-bold">{quizState.teams.find(t => t.id === quizState.rapidFireState?.activeTeamId)?.name || "Not Set"}</span>
+                    </p>
+                    <p className="text-gray-500">
+                      Currently at Question #{quizState.rapidFireState.questionIndex + 1}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pass Round Configuration */}
+            {activeRound?.type === "PASS_ROUND" && !quizState?.activeQuestion && (
+              <div className="bg-black/35 p-5 border border-white/5 rounded-xl space-y-3">
+                <h3 className="text-sm font-bold text-gray-300">Pass Round Configuration</h3>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <select
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    className="flex-1 rounded-xl border border-white/10 bg-[#121225] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="">-- Select Turn Team --</option>
+                    {quizState?.teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleSetPassRoundTeam}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl text-xs"
+                  >
+                    Set Turn
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Round Questions list */}
             <div className="space-y-3 pt-4 border-t border-white/5">
-              <h3 className="text-sm font-semibold text-gray-300">Question Pool for this session:</h3>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Round Question Pool:</h3>
               <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
-                {session.quiz.questions.map((q: any, idx: number) => {
+                {roundQuestions.map((q: any, idx: number) => {
                   const isCurrent = quizState?.activeQuestion?.id === q.id;
+                  
+                  // Rapid fire evaluation helper
+                  const isRapidFirePlaying = activeRound?.type === "RAPID_FIRE" && quizState?.rapidFireState?.isRunning;
+                  const isRfActiveQuestion = quizState?.rapidFireState?.questionIndex === idx;
+
                   return (
                     <div
                       key={q.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border text-sm transition-all duration-200 ${
-                        isCurrent
-                          ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
+                      className={`flex flex-col gap-3 p-3 rounded-xl border text-sm transition-all duration-200 ${
+                        isCurrent || (isRapidFirePlaying && isRfActiveQuestion)
+                          ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300 font-semibold"
                           : "bg-white/5 border-white/5 text-gray-300 hover:border-white/10"
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="font-mono text-xs text-gray-500">Q{idx + 1}</span>
-                        <span className="truncate max-w-[280px]" title={q.text}>{q.text}</span>
-                        <span className="text-[9px] uppercase tracking-wider font-bold bg-white/10 px-1 rounded">
-                          {q.type}
-                        </span>
-                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="font-mono text-xs text-gray-500">Q{idx + 1}</span>
+                          <span className="truncate max-w-[200px]" title={q.text}>{q.text}</span>
+                          <span className="text-[9px] uppercase tracking-wider font-bold bg-white/10 px-1 rounded">
+                            {q.type}
+                          </span>
+                        </div>
 
-                      <button
-                        onClick={() => handlePushQuestion(q.id)}
-                        disabled={isCurrent || quizState?.status !== "ACTIVE"}
-                        className="inline-flex items-center gap-1 rounded bg-indigo-600/15 border border-indigo-500/30 px-2.5 py-1 text-xs text-indigo-400 hover:bg-indigo-600 hover:text-white disabled:opacity-30 disabled:hover:bg-indigo-600/15 disabled:hover:text-indigo-400"
-                      >
-                        Push Question
-                      </button>
+                        {!isRapidFirePlaying ? (
+                          <button
+                            onClick={() => handlePushQuestion(q.id)}
+                            disabled={isCurrent || quizState?.status !== "ACTIVE"}
+                            className="inline-flex items-center gap-1 rounded bg-indigo-600/15 border border-indigo-500/30 px-2.5 py-1 text-[11px] text-indigo-400 hover:bg-indigo-600 hover:text-white disabled:opacity-30 disabled:hover:bg-indigo-600/15 disabled:hover:text-indigo-400"
+                          >
+                            Push Screen
+                          </button>
+                        ) : (
+                          isRfActiveQuestion && (
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => handleEvaluateRapidFire(q.id, "CORRECT")}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-1 rounded"
+                                title="Correct"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleEvaluateRapidFire(q.id, "WRONG")}
+                                className="bg-red-600 hover:bg-red-500 text-white font-bold p-1 rounded"
+                                title="Wrong"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleEvaluateRapidFire(q.id, "SKIP")}
+                                className="bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400 hover:text-white p-1 rounded"
+                                title="Skip"
+                              >
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+
+                {roundQuestions.length === 0 && (
+                  <div className="text-center py-6 text-xs text-gray-500">
+                    No questions are assigned to this round.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -452,7 +803,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
           {/* Buzzer log queues (Only displayed if current round is BUZZER) */}
           {activeRound?.type === "BUZZER" && (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-bold text-white font-heading flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
                 <Volume2 className="h-5 w-5 text-indigo-400 animate-pulse" />
                 Live Buzzer Registration Queue
               </h2>
@@ -462,7 +813,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   {quizState.buzzerQueue.map((item, index) => (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-between p-3.5 border rounded-xl text-sm ${
+                      className={`flex items-center justify-between p-3 border rounded-xl text-sm ${
                         item.status === "ACCEPTED"
                           ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                           : item.status === "REJECTED"
@@ -475,8 +826,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                           #{index + 1}
                         </span>
                         <div>
-                          <p className="font-semibold">{item.displayName}</p>
-                          {item.teamName && <p className="text-xs text-gray-500">{item.teamName}</p>}
+                          <p className="font-semibold text-white">{item.displayName}</p>
                         </div>
                       </div>
 
@@ -510,18 +860,18 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center bg-black/10 border border-dashed border-white/10 rounded-xl">
                   <Volume2 className="h-6 w-6 text-gray-600 mb-1" />
-                  <p className="text-xs text-gray-500">Wait for participants to press the buzzer...</p>
+                  <p className="text-xs text-gray-500">Wait for contestants to buzz...</p>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Right column: participants connected list and scoreboard */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl h-fit space-y-4">
+        {/* Sidebar Right: contestants scoreboard */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl h-fit space-y-4">
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h2 className="text-lg font-bold text-white font-heading flex items-center gap-1.5">
-              <Users className="h-5 w-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="h-4.5 w-4.5 text-indigo-400" />
               Contestants
             </h2>
             <span className="text-xs text-gray-400 font-semibold">
@@ -550,11 +900,10 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="font-mono font-bold text-indigo-400 text-base">
+                  <span className="font-mono font-bold text-indigo-400 text-sm">
                     {p.score} pt
                   </span>
 
-                  {/* Manual correction button */}
                   <button
                     onClick={() => {
                       setSelectedParticipant(p);
@@ -571,7 +920,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
             {(!quizState || quizState.participants.length === 0) && (
               <div className="text-center py-8 text-xs text-gray-500">
-                Lobby is empty. Distribute the access code to join.
+                Lobby is empty. Distribute code.
               </div>
             )}
           </div>
@@ -586,11 +935,10 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
               Adjust Score: {selectedParticipant.displayName}
             </h3>
             <p className="text-xs text-gray-400 mb-4">
-              Enter a positive or negative number to adjust the aggregate points score for this participant.
+              Enter points offset to apply manual correction.
             </p>
 
             <div className="space-y-4">
-              {/* Score Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Points Adjustment
@@ -619,21 +967,19 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                 </div>
               </div>
 
-              {/* Note */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Reason / Note
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Correct answer on pass"
+                  placeholder="Reason for change..."
                   value={correctionNote}
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
                 />
               </div>
 
-              {/* Action buttons */}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setSelectedParticipant(null)}
@@ -647,7 +993,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                   className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Apply Update
+                  Apply
                 </button>
               </div>
             </div>

@@ -5,6 +5,7 @@ export const ROUND_TYPES = {
   RAPID_FIRE: "RAPID_FIRE",
   TEAM_ANSWER: "TEAM_ANSWER",
   PASS_TO_MEMBER: "PASS_TO_MEMBER",
+  PASS_ROUND: "PASS_ROUND",
 } as const;
 
 export type RoundType = typeof ROUND_TYPES[keyof typeof ROUND_TYPES];

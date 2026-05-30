@@ -28,6 +28,9 @@ export async function getQuizById(id: string): Promise<any | null> {
       where: { id },
       include: {
         event: true,
+        templateRounds: {
+          orderBy: { roundNumber: "asc" },
+        },
         questions: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -98,6 +101,25 @@ export async function updateQuiz(id: string, data: Record<string, any>): Promise
   } catch (error) {
     console.error("Failed to update quiz:", error);
     return { success: false, error: "Failed to update quiz" };
+  }
+}
+
+export async function updateQuizStatus(
+  id: string,
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED"
+): Promise<ActionResponse> {
+  try {
+    await prisma.quiz.update({
+      where: { id },
+      data: { status },
+    });
+
+    revalidatePath("/admin/quizzes");
+    revalidatePath(`/admin/quizzes/${id}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update quiz status:", error);
+    return { success: false, error: "Failed to update quiz status" };
   }
 }
 

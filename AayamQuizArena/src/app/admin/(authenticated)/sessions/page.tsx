@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getSessions, createSession, deleteSession } from "@/actions/session.actions";
+import { getSessions, deleteSession } from "@/actions/session.actions";
 import { getQuizzes } from "@/actions/quiz.actions";
-import { Play, PlusCircle, Trash, ExternalLink, Activity, Users, Key } from "lucide-react";
+import { Play, Trash, ExternalLink, Activity, Users, Key } from "lucide-react";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { DeleteConfirmForm } from "@/components/shared/delete-confirm-form";
+import { SpawnSessionForm } from "./spawn-session-form";
 
 export const dynamic = "force-dynamic";
 
@@ -28,18 +28,7 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
     getQuizzes(),
   ]);
 
-  async function handleCreate(formData: FormData) {
-    "use server";
-    const name = formData.get("name") as string;
-    const quizId = formData.get("quizId") as string;
-
-    if (!name || !quizId) return;
-
-    const res = await createSession({ name, quizId });
-    if (res.success && res.data) {
-      redirect(`/admin/sessions/${res.data}`);
-    }
-  }
+  // Session creation is now handled client-side in SpawnSessionForm component
 
   async function handleDelete(formData: FormData) {
     "use server";
@@ -67,52 +56,7 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
         {/* Spawn Session Card */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl h-fit space-y-4">
           <h2 className="text-lg font-bold text-white font-heading">Spawn New Live Session</h2>
-          <form action={handleCreate} className="space-y-4">
-            {/* Session Name */}
-            <div className="space-y-1">
-              <label htmlFor="name" className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Session Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                defaultValue={`Session - ${new Date().toLocaleDateString()}`}
-                placeholder="e.g. CodeQuest Finals"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            {/* Quiz Choice */}
-            <div className="space-y-1">
-              <label htmlFor="quizId" className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Select Quiz Template
-              </label>
-              <select
-                id="quizId"
-                name="quizId"
-                required
-                defaultValue={autoQuizId || ""}
-                className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
-              >
-                <option value="" disabled>-- Select a template --</option>
-                {quizzes.map((q) => (
-                  <option key={q.id} value={q.id}>
-                    {q.name} ({q.mode})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:bg-indigo-500"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Launch Session
-            </button>
-          </form>
+          <SpawnSessionForm quizzes={quizzes} autoQuizId={autoQuizId} />
         </div>
 
         {/* Sessions list */}

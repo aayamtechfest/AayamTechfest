@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSocket } from "@/lib/socket";
-import { Trophy, Clock, Zap, Volume2, Key, Users, Activity } from "lucide-react";
+import { Trophy, Clock, Zap, Volume2, Key, Users, Activity, Flame } from "lucide-react";
 import { RealtimeQuizState } from "@/types";
 
 interface ProjectorScreenClientProps {
@@ -146,7 +146,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                   Enter Join Code: <span className="text-indigo-400 font-mono tracking-widest">{session.accessCode}</span>
                 </h2>
                 <p className="text-base text-gray-400 max-w-md mx-auto">
-                  Go to <span className="text-indigo-300 font-bold">http://localhost:3002/join</span> on your device to connect.
+                  Go to <span className="text-indigo-300 font-bold">{process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002"}/join</span> on your device to connect.
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold uppercase tracking-wider bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
@@ -166,29 +166,94 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                   {lastBuzzerName}
                 </h2>
                 <p className="text-sm text-gray-400 mt-2 font-semibold">
-                  First arrival registered on the queue
+                  Fastest finger registered!
                 </p>
               </div>
             </div>
+          ) : state?.currentRoundType === "RAPID_FIRE" ? (
+            /* ─────────── RAPID FIRE PROJECTOR VIEW ─────────── */
+            <div className="flex-1 flex flex-col justify-between space-y-6 text-center">
+              <div className="space-y-4">
+                <span className="text-xs uppercase font-bold text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 tracking-wider">
+                  Traditional Rapid Fire Round
+                </span>
+                <h2 className="text-4xl font-extrabold font-heading text-white">
+                  Active Team: <span className="text-amber-400 font-black">{state.rapidFireState?.activeTeamId ? state.teams.find(t => t.id === state.rapidFireState?.activeTeamId)?.name : "Not Configured"}</span>
+                </h2>
+              </div>
+
+              {state.rapidFireState?.isRunning ? (
+                <div className="flex-1 flex flex-col justify-center items-center space-y-6">
+                  {/* Big ticking clock */}
+                  <div className="relative flex items-center justify-center h-44 w-44 rounded-full border-4 border-red-500/30 bg-black/25">
+                    <Clock className="absolute top-10 h-7 w-7 text-red-500 animate-pulse" />
+                    <span className="text-5xl font-mono font-black text-white mt-4">{state.rapidFireState.timeLeft}s</span>
+                  </div>
+                  <div className="text-lg text-gray-400 max-w-lg leading-relaxed font-semibold">
+                    Question Index: #{state.rapidFireState.questionIndex + 1}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center items-center space-y-4">
+                  <Flame className="h-16 w-16 text-gray-600" />
+                  <p className="text-lg text-gray-400">Timer is paused. Host is preparing team questions.</p>
+                </div>
+              )}
+            </div>
+          ) : state?.currentRoundType === "PASS_ROUND" ? (
+            /* ─────────── PASS ROUND PROJECTOR VIEW ─────────── */
+            <div className="flex-1 flex flex-col justify-between space-y-6 text-center">
+              <div className="space-y-2 border-b border-white/5 pb-4">
+                <span className="text-xs uppercase font-bold text-yellow-400 bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20 tracking-wider">
+                  Pass Round (Circular Turn)
+                </span>
+                <h2 className="text-4xl font-extrabold font-heading text-white mt-3">
+                  Current Turn: <span className="text-yellow-400 font-black">{state.passRoundState?.activeTeamId ? state.teams.find(t => t.id === state.passRoundState?.activeTeamId)?.name : "Not Configured"}</span>
+                </h2>
+                {state.passRoundState?.passCount && state.passRoundState.passCount > 0 ? (
+                  <p className="text-xs text-yellow-500 font-bold uppercase tracking-widest mt-1">
+                    Passed x{state.passRoundState.passCount} &bull; Points slashed to 50%!
+                  </p>
+                ) : null}
+              </div>
+
+              {state.activeQuestion ? (
+                <div className="flex-1 flex flex-col justify-center">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold leading-relaxed font-heading max-w-xl mx-auto">
+                    {state.activeQuestion.text}
+                  </h1>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center items-center">
+                  <Zap className="h-12 w-12 text-gray-600 animate-pulse" />
+                  <p className="text-sm text-gray-500 mt-2">Waiting for host to push next pass question.</p>
+                </div>
+              )}
+            </div>
           ) : state?.activeQuestion ? (
-            /* Active Question Layout */
-            <div className="flex-1 flex flex-col justify-between space-y-8">
+            /* ─────────── MCQ / BUZZER ROUND VIEW ─────────── */
+            <div className="flex-1 flex flex-col justify-between space-y-8 animate-fade-in">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                   <span className="text-xs uppercase font-bold text-indigo-400 tracking-widest">
                     Question Box ({state.activeQuestion.type})
                   </span>
                   
-                  {/* Big ticking timer */}
-                  {timeRemaining > 0 && (
+                  {state.currentRoundType === "MCQ" && timeRemaining > 0 && (
                     <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 px-4 py-1.5 rounded-2xl text-red-400 font-mono font-black text-xl">
                       <Clock className="h-5 w-5 animate-pulse" />
                       <span>{timeRemaining}s</span>
                     </div>
                   )}
-                  {timeRemaining <= 0 && (
+                  {state.currentRoundType === "MCQ" && timeRemaining <= 0 && (
                     <div className="bg-white/5 border border-white/5 px-4 py-1 rounded-xl text-gray-500 text-xs font-bold uppercase tracking-wider">
                       Timer Expired
+                    </div>
+                  )}
+
+                  {state.currentRoundType === "BUZZER" && (
+                    <div className={`border px-4 py-1 rounded-xl text-xs font-bold uppercase tracking-wider ${state.buzzerOpen ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 animate-pulse" : "bg-red-500/20 border-red-500 text-red-400"}`}>
+                      Buzzers: {state.buzzerOpen ? "Open" : "Locked"}
                     </div>
                   )}
                 </div>
@@ -238,7 +303,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
               <div>
                 <h2 className="text-xl font-bold text-white font-heading">Prepare for the next challenge</h2>
                 <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-                  The coordinator is organizing the round questions. Stand by.
+                  Host is setting up the next round questions.
                 </p>
               </div>
             </div>
@@ -267,7 +332,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between border border-white/5 bg-black/35 p-3 rounded-xl text-sm"
+                    className="flex items-center justify-between border border-white/5 bg-black/35 p-3 rounded-xl text-sm animate-fade-in"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span

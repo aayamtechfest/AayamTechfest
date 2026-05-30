@@ -20,7 +20,15 @@ const pool = new Pool({
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
-const httpServer = createServer();
+const httpServer = createServer((req, res) => {
+  if (req.url === "/health" || req.url === "/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }));
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
 const io = new Server(httpServer, {
   cors: {
     origin: "*", // Allow all origins for dev simplicity
@@ -39,6 +47,20 @@ interface RealtimeQuizStateCache {
   questionStartedAt: Date | null;
   questionEndsAt: Date | null;
   timerInterval: NodeJS.Timeout | null;
+  buzzerOpen?: boolean;
+  rapidFireState?: {
+    activeTeamId: string | null;
+    activeParticipantId: string | null;
+    timeLeft: number;
+    isRunning: boolean;
+    questionIndex: number;
+    timerInterval?: NodeJS.Timeout | null;
+  };
+  passRoundState?: {
+    activeTeamId: string | null;
+    activeParticipantId: string | null;
+    passCount: number;
+  };
 }
 
 const activeSessions = new Map<string, RealtimeQuizStateCache>();
@@ -119,6 +141,19 @@ async function broadcastState(sessionId: string) {
       activeQuestion: activeQuestionDetails,
       questionStartedAt: cache?.questionStartedAt?.toISOString() || null,
       questionEndsAt: cache?.questionEndsAt?.toISOString() || null,
+      buzzerOpen: cache?.buzzerOpen || false,
+      rapidFireState: cache?.rapidFireState ? {
+        activeTeamId: cache.rapidFireState.activeTeamId,
+        activeParticipantId: cache.rapidFireState.activeParticipantId,
+        timeLeft: cache.rapidFireState.timeLeft,
+        isRunning: cache.rapidFireState.isRunning,
+        questionIndex: cache.rapidFireState.questionIndex,
+      } : null,
+      passRoundState: cache?.passRoundState ? {
+        activeTeamId: cache.passRoundState.activeTeamId,
+        activeParticipantId: cache.passRoundState.activeParticipantId,
+        passCount: cache.passRoundState.passCount,
+      } : null,
       participants: session.participants.map((p) => ({
         id: p.id,
         displayName: p.displayName,
@@ -178,6 +213,7 @@ io.on("connection", (socket) => {
           questionStartedAt: null,
           questionEndsAt: null,
           timerInterval: null,
+          buzzerOpen: false,
         });
       }
     }
@@ -214,6 +250,62 @@ io.on("connection", (socket) => {
     if (cache) {
       cache.status = "COMPLETED";
       if (cache.timerInterval) clearInterval(cache.timerInterval);
+      if (cache.rapidFireState?.timerInterval) clearInterval(cache.rapidFireState.timerInterval);
+    }
+    broadcastState(sessionId);
+  });
+
+  socket.on("admin:start-round", async ({ sessionId, roundId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      cache.currentRoundId = roundId;
+      cache.activeQuestionId = null;
+      cache.buzzerOpen = false;
+
+      // Reset timer
+      if (cache.timerInterval) {
+        clearInterval(cache.timerInterval);
+        cache.timerInterval = null;
+      }
+      
+      const round = await prisma.quizRound.findUnique({ where: { id: roundId } });
+      if (round) {
+        if (round.type === "RAPID_FIRE") {
+          cache.rapidFireState = {
+            activeTeamId: null,
+            activeParticipantId: null,
+            timeLeft: 60,
+            isRunning: false,
+            questionIndex: 0,
+          };
+        } else if (round.type === "PASS_ROUND") {
+          cache.passRoundState = {
+            activeTeamId: null,
+            activeParticipantId: null,
+            passCount: 0,
+          };
+        } else {
+          cache.rapidFireState = undefined;
+          cache.passRoundState = undefined;
+        }
+      }
+    }
+    broadcastState(sessionId);
+  });
+
+  socket.on("admin:end-round", async ({ sessionId, roundId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      cache.activeQuestionId = null;
+      if (cache.timerInterval) {
+        clearInterval(cache.timerInterval);
+        cache.timerInterval = null;
+      }
+      if (cache.rapidFireState?.timerInterval) {
+        clearInterval(cache.rapidFireState.timerInterval);
+      }
+      cache.rapidFireState = undefined;
+      cache.passRoundState = undefined;
     }
     broadcastState(sessionId);
   });
@@ -221,13 +313,17 @@ io.on("connection", (socket) => {
   socket.on("admin:push-question", async ({ sessionId, questionId }) => {
     const question = await prisma.quizQuestion.findUnique({
       where: { id: questionId },
+      include: { round: true },
     });
 
     if (!question) return;
 
     const cache = activeSessions.get(sessionId);
     if (cache) {
-      if (cache.timerInterval) clearInterval(cache.timerInterval);
+      if (cache.timerInterval) {
+        clearInterval(cache.timerInterval);
+        cache.timerInterval = null;
+      }
 
       const duration = question.timeLimit || 30;
       const started = new Date();
@@ -236,11 +332,16 @@ io.on("connection", (socket) => {
       cache.activeQuestionId = questionId;
       cache.questionStartedAt = started;
       cache.questionEndsAt = ends;
+      
+      // Auto-set buzzer round defaults
+      cache.buzzerOpen = false;
 
-      // Start tick interval to automatically clear when timer expires
-      cache.timerInterval = setTimeout(() => {
-        io.to(`session:${sessionId}`).emit("timer-expired", { questionId });
-      }, duration * 1000);
+      // Start tick interval to automatically clear when timer expires (only for MCQ/Simultaneous Answer)
+      if (question.round?.type === "MCQ") {
+        cache.timerInterval = setTimeout(() => {
+          io.to(`session:${sessionId}`).emit("timer-expired", { questionId });
+        }, duration * 1000);
+      }
     }
 
     broadcastState(sessionId);
@@ -363,10 +464,27 @@ io.on("connection", (socket) => {
   });
 
   // ─── BUZZER EVENT HANDLERS ────────────────────────────────────────────────
+  socket.on("admin:open-buzzer", ({ sessionId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      cache.buzzerOpen = true;
+      io.to(`session:${sessionId}`).emit("buzzer-reset"); // Reset rank animations
+      broadcastState(sessionId);
+    }
+  });
+
+  socket.on("admin:close-buzzer", ({ sessionId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      cache.buzzerOpen = false;
+      broadcastState(sessionId);
+    }
+  });
+
   socket.on("buzzer-pressed", async ({ sessionId, participantId }) => {
     try {
       const cache = activeSessions.get(sessionId);
-      if (!cache || !cache.activeQuestionId) return;
+      if (!cache || !cache.activeQuestionId || !cache.buzzerOpen) return;
 
       const count = await prisma.quizBuzzerEvent.count({
         where: { sessionId, questionId: cache.activeQuestionId },
@@ -403,6 +521,7 @@ io.on("connection", (socket) => {
   socket.on("admin:reset-buzzer", async ({ sessionId }) => {
     const cache = activeSessions.get(sessionId);
     if (cache && cache.activeQuestionId) {
+      cache.buzzerOpen = false; // Lock buzzers again on reset
       await prisma.quizBuzzerEvent.deleteMany({
         where: { sessionId, questionId: cache.activeQuestionId },
       });
@@ -418,6 +537,12 @@ io.on("connection", (socket) => {
         data: { status },
         include: { question: true },
       });
+
+      // Once resolved, close/lock buzzers
+      const cache = activeSessions.get(sessionId);
+      if (cache) {
+        cache.buzzerOpen = false;
+      }
 
       if (status === "ACCEPTED") {
         const points = buzzerEvent.question.points || 10;
@@ -450,6 +575,218 @@ io.on("connection", (socket) => {
       broadcastState(sessionId);
     } catch (err) {
       console.error("Resolve buzzer error:", err);
+    }
+  });
+
+  // ─── RAPID FIRE HANDLERS ──────────────────────────────────────────────────
+  socket.on("admin:set-rapid-fire-team", ({ sessionId, teamId, participantId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      if (cache.rapidFireState?.timerInterval) {
+        clearInterval(cache.rapidFireState.timerInterval);
+      }
+      cache.rapidFireState = {
+        activeTeamId: teamId || null,
+        activeParticipantId: participantId || null,
+        timeLeft: 60,
+        isRunning: false,
+        questionIndex: 0,
+      };
+      broadcastState(sessionId);
+    }
+  });
+
+  socket.on("admin:start-rapid-fire-timer", ({ sessionId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache && cache.rapidFireState && !cache.rapidFireState.isRunning) {
+      cache.rapidFireState.isRunning = true;
+
+      const interval = setInterval(() => {
+        const rfState = cache.rapidFireState;
+        if (rfState && rfState.timeLeft > 0 && rfState.isRunning) {
+          rfState.timeLeft--;
+          if (rfState.timeLeft <= 0) {
+            rfState.isRunning = false;
+            clearInterval(interval);
+            io.to(`session:${sessionId}`).emit("rapid-fire-expired");
+          }
+          broadcastState(sessionId);
+        } else {
+          clearInterval(interval);
+        }
+      }, 1000);
+
+      cache.rapidFireState.timerInterval = interval;
+      broadcastState(sessionId);
+    }
+  });
+
+  socket.on("admin:evaluate-rapid-fire", async ({ sessionId, questionId, status }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (!cache || !cache.rapidFireState) return;
+
+      const rfState = cache.rapidFireState;
+      const participantId = rfState.activeParticipantId;
+      const teamId = rfState.activeTeamId;
+
+      if (status === "CORRECT" && (participantId || teamId)) {
+        const question = await prisma.quizQuestion.findUnique({
+          where: { id: questionId },
+        });
+        const points = question?.points || 10;
+
+        await prisma.$transaction(async (tx) => {
+          if (participantId) {
+            await tx.quizScore.create({
+              data: {
+                sessionId,
+                participantId,
+                roundId: cache.currentRoundId,
+                points,
+                note: "Rapid Fire correct answer",
+              },
+            });
+
+            await tx.quizParticipant.update({
+              where: { id: participantId },
+              data: { totalScore: { increment: points } },
+            });
+          }
+
+          if (teamId) {
+            await tx.quizTeam.update({
+              where: { id: teamId },
+              data: { totalScore: { increment: points } },
+            });
+
+            if (!participantId) {
+              const members = await tx.quizParticipant.findMany({
+                where: { sessionId, teamId },
+              });
+              for (const m of members) {
+                await tx.quizScore.create({
+                  data: {
+                    sessionId,
+                    participantId: m.id,
+                    roundId: cache.currentRoundId,
+                    points,
+                    note: "Rapid Fire team correct",
+                  },
+                });
+                await tx.quizParticipant.update({
+                  where: { id: m.id },
+                  data: { totalScore: { increment: points } },
+                });
+              }
+            }
+          }
+        });
+      }
+
+      rfState.questionIndex++;
+      broadcastState(sessionId);
+    } catch (err) {
+      console.error("Evaluate rapid fire error:", err);
+    }
+  });
+
+  // ─── PASS ROUND HANDLERS ──────────────────────────────────────────────────
+  socket.on("admin:set-pass-round-team", ({ sessionId, teamId, participantId }) => {
+    const cache = activeSessions.get(sessionId);
+    if (cache) {
+      cache.passRoundState = {
+        activeTeamId: teamId || null,
+        activeParticipantId: participantId || null,
+        passCount: 0,
+      };
+      broadcastState(sessionId);
+    }
+  });
+
+  socket.on("admin:evaluate-pass-round", async ({ sessionId, questionId, status, nextTeamId, nextParticipantId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (!cache || !cache.passRoundState) return;
+
+      const prState = cache.passRoundState;
+      const participantId = prState.activeParticipantId;
+      const teamId = prState.activeTeamId;
+
+      const question = await prisma.quizQuestion.findUnique({
+        where: { id: questionId },
+      });
+      const basePoints = question?.points || 10;
+      
+      // Calculate correct pass round scores
+      let pointsAwarded = 0;
+      if (status === "CORRECT") {
+        pointsAwarded = prState.passCount > 0 ? Math.floor(basePoints / 2) : basePoints;
+      }
+
+      if (status === "CORRECT" && (participantId || teamId)) {
+        await prisma.$transaction(async (tx) => {
+          if (participantId) {
+            await tx.quizScore.create({
+              data: {
+                sessionId,
+                participantId,
+                roundId: cache.currentRoundId,
+                points: pointsAwarded,
+                note: prState.passCount > 0 ? "Correct on pass" : "Correct on direct",
+              },
+            });
+
+            await tx.quizParticipant.update({
+              where: { id: participantId },
+              data: { totalScore: { increment: pointsAwarded } },
+            });
+          }
+
+          if (teamId) {
+            await tx.quizTeam.update({
+              where: { id: teamId },
+              data: { totalScore: { increment: pointsAwarded } },
+            });
+
+            if (!participantId) {
+              const members = await tx.quizParticipant.findMany({
+                where: { sessionId, teamId },
+              });
+              for (const m of members) {
+                await tx.quizScore.create({
+                  data: {
+                    sessionId,
+                    participantId: m.id,
+                    roundId: cache.currentRoundId,
+                    points: pointsAwarded,
+                    note: prState.passCount > 0 ? "Correct on pass" : "Correct on direct",
+                  },
+                });
+                await tx.quizParticipant.update({
+                  where: { id: m.id },
+                  data: { totalScore: { increment: pointsAwarded } },
+                });
+              }
+            }
+          }
+        });
+      }
+
+      if (status === "PASS") {
+        prState.passCount++;
+        prState.activeTeamId = nextTeamId || null;
+        prState.activeParticipantId = nextParticipantId || null;
+      } else {
+        // Reset pass count on correct/wrong evaluation and move to next team
+        prState.passCount = 0;
+        prState.activeTeamId = nextTeamId || null;
+        prState.activeParticipantId = nextParticipantId || null;
+      }
+
+      broadcastState(sessionId);
+    } catch (err) {
+      console.error("Evaluate pass round error:", err);
     }
   });
 

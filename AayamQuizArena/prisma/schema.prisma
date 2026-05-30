@@ -268,6 +268,7 @@ enum RoundType {
   RAPID_FIRE
   TEAM_ANSWER
   PASS_TO_MEMBER
+  PASS_ROUND
 }
 
 enum RoundStatus {
@@ -290,18 +291,19 @@ enum BuzzerStatus {
 }
 
 model Quiz {
-  id          String         @id @default(cuid())
-  name        String
-  description String?        @db.Text
-  eventId     String?
-  event       Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  mode        QuizMode       @default(SOLO)
-  status      QuizStatus     @default(DRAFT)
-  settings    Json?          // Configurable settings per quiz
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  questions   QuizQuestion[]
-  sessions    QuizSession[]
+  id             String              @id @default(cuid())
+  name           String
+  description    String?             @db.Text
+  eventId        String?
+  event          Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  mode           QuizMode            @default(SOLO)
+  status         QuizStatus          @default(DRAFT)
+  settings       Json?               // Configurable settings per quiz
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  questions      QuizQuestion[]
+  sessions       QuizSession[]
+  templateRounds QuizTemplateRound[]
 
   @@index([eventId])
 }
@@ -330,6 +332,23 @@ model QuizSession {
   @@index([quizId])
 }
 
+model QuizTemplateRound {
+  id                String         @id @default(cuid())
+  quizId            String
+  quiz              Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  roundNumber       Int
+  title             String
+  type              RoundType      @default(MCQ)
+  timeLimit         Int            @default(30) // seconds per question
+  pointsPerQuestion Int            @default(10)
+  settings          Json?          // Round-specific configuration
+  questions         QuizQuestion[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([quizId])
+}
+
 model QuizRound {
   id                   String                    @id @default(cuid())
   sessionId            String
@@ -353,26 +372,29 @@ model QuizRound {
 }
 
 model QuizQuestion {
-  id           String               @id @default(cuid())
-  quizId       String
-  quiz         Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  roundId      String?
-  round        QuizRound?           @relation(fields: [roundId], references: [id], onDelete: SetNull)
-  text         String               @db.Text
-  mediaUrl     String?
-  type         QuestionType         @default(MCQ)
-  timeLimit    Int?                 // Overrides round-level time limit if set
-  points       Int?                 // Overrides round-level points if set
-  sortOrder    Int                  @default(0)
-  explanation  String?              @db.Text
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  options      QuizQuestionOption[]
-  answers      QuizAnswer[]
-  buzzerEvents QuizBuzzerEvent[]
+  id              String               @id @default(cuid())
+  quizId          String
+  quiz            Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  roundId         String?
+  round           QuizRound?           @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  templateRoundId String?
+  templateRound   QuizTemplateRound?   @relation(fields: [templateRoundId], references: [id], onDelete: SetNull)
+  text            String               @db.Text
+  mediaUrl        String?
+  type            QuestionType         @default(MCQ)
+  timeLimit       Int?                 // Overrides round-level time limit if set
+  points          Int?                 // Overrides round-level points if set
+  sortOrder       Int                  @default(0)
+  explanation     String?              @db.Text
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  options         QuizQuestionOption[]
+  answers         QuizAnswer[]
+  buzzerEvents    QuizBuzzerEvent[]
 
   @@index([quizId])
   @@index([roundId])
+  @@index([templateRoundId])
 }
 
 model QuizQuestionOption {

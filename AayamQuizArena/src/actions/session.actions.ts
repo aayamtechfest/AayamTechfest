@@ -86,11 +86,23 @@ export async function createSession(data: Record<string, any>): Promise<ActionRe
 
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
-      include: { questions: true },
+      include: {
+        questions: true,
+        templateRounds: {
+          orderBy: { roundNumber: "asc" },
+        },
+      },
     });
 
     if (!quiz) {
       return { success: false, error: "Quiz not found" };
+    }
+
+    if (quiz.status !== "PUBLISHED") {
+      return {
+        success: false,
+        error: `Cannot create a session from a ${quiz.status.toLowerCase()} quiz. Please publish the quiz first.`,
+      };
     }
 
     const session = await prisma.$transaction(async (tx) => {
@@ -104,21 +116,59 @@ export async function createSession(data: Record<string, any>): Promise<ActionRe
         },
       });
 
-      // Group questions by roundId if they have it, or create a default Round 1 for all questions
-      const roundQuestionsMap: Record<string, any[]> = {};
-      const poolQuestions: any[] = [];
+      const templateRounds = quiz.templateRounds;
 
-      quiz.questions.forEach((q) => {
-        if (q.roundId) {
-          if (!roundQuestionsMap[q.roundId]) roundQuestionsMap[q.roundId] = [];
-          roundQuestionsMap[q.roundId].push(q);
-        } else {
-          poolQuestions.push(q);
+      if (templateRounds.length > 0) {
+        const roundIdMapping: Record<string, string> = {};
+        let firstRoundId: string | null = null;
+
+        for (const tr of templateRounds) {
+          const newRound = await tx.quizRound.create({
+            data: {
+              sessionId: sess.id,
+              roundNumber: tr.roundNumber,
+              title: tr.title,
+              type: tr.type,
+              status: "PENDING",
+              timeLimit: tr.timeLimit,
+              pointsPerQuestion: tr.pointsPerQuestion,
+              settings: {
+                ...(tr.settings as Record<string, any> || {}),
+                templateRoundId: tr.id,
+              },
+            },
+          });
+
+          roundIdMapping[tr.id] = newRound.id;
+          if (!firstRoundId) {
+            firstRoundId = newRound.id;
+          }
         }
-      });
 
-      // For simplicity, create a default "Round 1" and link all pool questions to it
-      if (poolQuestions.length > 0) {
+        // Now link each question to its corresponding session round
+        for (const q of quiz.questions) {
+          if (q.templateRoundId && roundIdMapping[q.templateRoundId]) {
+            await tx.quizQuestion.update({
+              where: { id: q.id },
+              data: { roundId: roundIdMapping[q.templateRoundId] },
+            });
+          } else {
+            // Unlink if it doesn't belong to any valid round in this session
+            await tx.quizQuestion.update({
+              where: { id: q.id },
+              data: { roundId: null },
+            });
+          }
+        }
+
+        if (firstRoundId) {
+          await tx.quizSession.update({
+            where: { id: sess.id },
+            data: { currentRoundId: firstRoundId },
+          });
+        }
+      } else {
+        // Fallback: create a default "Round 1" and link all questions to it
         const defaultRound = await tx.quizRound.create({
           data: {
             sessionId: sess.id,
@@ -133,7 +183,7 @@ export async function createSession(data: Record<string, any>): Promise<ActionRe
 
         // Update questions round link
         await tx.quizQuestion.updateMany({
-          where: { id: { in: poolQuestions.map((q) => q.id) } },
+          where: { id: { in: quiz.questions.map((q) => q.id) } },
           data: { roundId: defaultRound.id },
         });
 

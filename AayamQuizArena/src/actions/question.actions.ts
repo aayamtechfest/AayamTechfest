@@ -15,7 +15,7 @@ export async function createQuestion(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const { text, type, mediaUrl, timeLimit, points, explanation, options } = parsed.data;
+    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options } = parsed.data;
 
     const question = await prisma.$transaction(async (tx) => {
       const q = await tx.quizQuestion.create({
@@ -27,6 +27,7 @@ export async function createQuestion(
           timeLimit,
           points,
           explanation,
+          templateRoundId,
         },
       });
 
@@ -62,7 +63,7 @@ export async function updateQuestion(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const { text, type, mediaUrl, timeLimit, points, explanation, options } = parsed.data;
+    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options } = parsed.data;
 
     const question = await prisma.quizQuestion.findUnique({
       where: { id: questionId },
@@ -83,6 +84,7 @@ export async function updateQuestion(
           timeLimit,
           points,
           explanation,
+          templateRoundId,
         },
       });
 
@@ -143,5 +145,86 @@ export async function getEvents(): Promise<{ id: string; name: string }[]> {
   } catch (error) {
     console.error("Failed to get events list:", error);
     return [];
+  }
+}
+
+export async function importQuestions(
+  quizId: string,
+  questionsData: any[]
+): Promise<ActionResponse<{ count: number }>> {
+  try {
+    if (!Array.isArray(questionsData)) {
+      return { success: false, error: "Invalid JSON format. Expected an array of questions." };
+    }
+
+    const count = await prisma.$transaction(async (tx) => {
+      let importedCount = 0;
+
+      for (const item of questionsData) {
+        if (!item.text) continue;
+
+        // Try to find or create template round if roundNumber is provided
+        let templateRoundId: string | null = null;
+        if (item.roundNumber !== undefined) {
+          const roundNum = parseInt(item.roundNumber) || 1;
+          const roundTitle = item.roundTitle || `Round ${roundNum}`;
+          const roundType = item.roundType || "MCQ";
+
+          let tr = await tx.quizTemplateRound.findFirst({
+            where: { quizId, roundNumber: roundNum },
+          });
+
+          if (!tr) {
+            tr = await tx.quizTemplateRound.create({
+              data: {
+                quizId,
+                roundNumber: roundNum,
+                title: roundTitle,
+                type: roundType,
+                timeLimit: item.roundTimeLimit !== undefined ? parseInt(item.roundTimeLimit) : 30,
+                pointsPerQuestion: item.roundPoints !== undefined ? parseInt(item.roundPoints) : 10,
+              },
+            });
+          }
+          templateRoundId = tr.id;
+        }
+
+        // Create the question
+        const q = await tx.quizQuestion.create({
+          data: {
+            quizId,
+            templateRoundId,
+            text: item.text,
+            type: item.type || "MCQ",
+            mediaUrl: item.mediaUrl || null,
+            timeLimit: item.timeLimit !== undefined ? parseInt(item.timeLimit) : 30,
+            points: item.points !== undefined ? parseInt(item.points) : 10,
+            explanation: item.explanation || null,
+          },
+        });
+
+        // Add options if any
+        if (Array.isArray(item.options) && item.options.length > 0) {
+          await tx.quizQuestionOption.createMany({
+            data: item.options.map((opt: any, index: number) => ({
+              questionId: q.id,
+              text: opt.text,
+              isCorrect: opt.isCorrect === true || opt.isCorrect === "true",
+              sortOrder: opt.sortOrder !== undefined ? parseInt(opt.sortOrder) : index,
+            })),
+          });
+        }
+
+        importedCount++;
+      }
+
+      return importedCount;
+    });
+
+    revalidatePath(`/admin/quizzes/${quizId}`);
+    return { success: true, data: { count } };
+  } catch (error: any) {
+    console.error("Failed to import questions:", error);
+    return { success: false, error: error.message || "Failed to import questions" };
   }
 }
