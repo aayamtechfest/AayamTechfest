@@ -56,7 +56,16 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
         {/* Spawn Session Card */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl h-fit space-y-4">
           <h2 className="text-lg font-bold text-white font-heading">Spawn New Live Session</h2>
-          <SpawnSessionForm quizzes={quizzes} autoQuizId={autoQuizId} />
+          {/* Sanitize quizzes to only pass primitive values to the client component */}
+          <SpawnSessionForm 
+            quizzes={quizzes.map((q) => ({
+              id: q.id,
+              name: q.name,
+              mode: q.mode,
+              status: q.status,
+            }))} 
+            autoQuizId={autoQuizId} 
+          />
         </div>
 
         {/* Sessions list */}
