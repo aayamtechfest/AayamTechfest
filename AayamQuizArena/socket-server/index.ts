@@ -75,6 +75,7 @@ interface RealtimeQuizStateCache {
       questionTimeLimit: number;
       pointsPerQuestion: number;
       negativeMarking: boolean;
+      selectedSet?: string;
     };
     stats: {
       attempted: number;
