@@ -58,6 +58,7 @@ interface RealtimeQuizStateCache {
   questionEndsAt: Date | null;
   timerInterval: NodeJS.Timeout | null;
   buzzerOpen?: boolean;
+  buzzerCount?: number;
   buzzerCountdownInterval?: NodeJS.Timeout | null;
   questionCompleted?: boolean;
   rapidFireState?: {
@@ -481,6 +482,7 @@ io.on("connection", (socket) => {
           cache.questionStartedAt = started;
           cache.questionEndsAt = ends;
           cache.buzzerOpen = false;
+          cache.buzzerCount = 0;
           cache.questionCompleted = false;
 
           // Log question usage
@@ -868,6 +870,7 @@ io.on("connection", (socket) => {
       const cache = activeSessions.get(sessionId);
       if (cache) {
         cache.buzzerOpen = true;
+        cache.buzzerCount = 0; // Initialize in-memory counter
         io.to(`session:${sessionId}`).emit("buzzer-reset"); // Reset rank animations
         await broadcastState(sessionId);
       }
@@ -893,9 +896,20 @@ io.on("connection", (socket) => {
       const cache = activeSessions.get(sessionId);
       if (!cache || !cache.activeQuestionId || !cache.buzzerOpen || cache.questionCompleted) return;
 
-      const count = await prisma.quizBuzzerEvent.count({
-        where: { sessionId, questionId: cache.activeQuestionId },
+      // Check if participant already buzzed for this question (prevent duplicate submissions)
+      const alreadyBuzzed = await prisma.quizBuzzerEvent.findFirst({
+        where: { sessionId, questionId: cache.activeQuestionId, participantId },
       });
+      if (alreadyBuzzed) return;
+
+      // Increment in-memory counter synchronously to prevent race conditions
+      if (cache.buzzerCount === undefined) {
+        cache.buzzerCount = await prisma.quizBuzzerEvent.count({
+          where: { sessionId, questionId: cache.activeQuestionId },
+        });
+      }
+      cache.buzzerCount++;
+      const assignedRank = cache.buzzerCount;
 
       // Save buzzer press with rank (server arrival timestamp)
       const buzzerEvent = await prisma.quizBuzzerEvent.create({
@@ -904,7 +918,7 @@ io.on("connection", (socket) => {
           roundId: cache.currentRoundId!,
           questionId: cache.activeQuestionId,
           participantId,
-          rank: count + 1,
+          rank: assignedRank,
           status: "PENDING",
         },
         include: {
@@ -916,7 +930,7 @@ io.on("connection", (socket) => {
       io.to(`session:${sessionId}`).emit("buzzer-hit", {
         participantId,
         displayName: buzzerEvent.participant.displayName,
-        rank: buzzerEvent.rank,
+        rank: assignedRank,
       });
 
       broadcastState(sessionId);
@@ -930,6 +944,7 @@ io.on("connection", (socket) => {
       const cache = activeSessions.get(sessionId);
       if (cache && cache.activeQuestionId) {
         cache.buzzerOpen = false;
+        cache.buzzerCount = 0; // Reset counter
         await prisma.quizBuzzerEvent.deleteMany({
           where: { sessionId, questionId: cache.activeQuestionId },
         });
