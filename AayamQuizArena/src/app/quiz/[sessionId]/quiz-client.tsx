@@ -79,8 +79,15 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
 
     socket.on("state-sync", (updatedState: RealtimeQuizState) => {
       setState((prevState) => {
-        // Reset inputs if the question has transitioned
-        if (prevState?.activeQuestion?.id !== updatedState.activeQuestion?.id) {
+        // Reset inputs if:
+        // 1. The active question ID changes
+        // 2. The active round type changes
+        // 3. The rapid fire running state turns off
+        const questionChanged = prevState?.activeQuestion?.id !== updatedState.activeQuestion?.id;
+        const roundChanged = prevState?.currentRoundType !== updatedState.currentRoundType;
+        const rfTurnEnded = prevState?.rapidFireState?.isRunning === true && updatedState.rapidFireState?.isRunning === false;
+        
+        if (questionChanged || roundChanged || rfTurnEnded) {
           setSubmittedOptionId(null);
           setSelectedOptionId(null);
           setHasBuzzed(false);
@@ -220,7 +227,13 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
   // Active check for Rapid Fire
   const isRapidFireActiveTurn = state.currentRoundType === "RAPID_FIRE" && 
     state.rapidFireState && 
+    state.rapidFireState.isRunning &&
     (state.rapidFireState.activeParticipantId === resolvedPlayerId || 
+     (currentPlayer?.teamId && state.rapidFireState.activeTeamId === currentPlayer.teamId));
+
+  const isSelectedForRapidFire = state.currentRoundType === "RAPID_FIRE" &&
+    state.rapidFireState &&
+    (state.rapidFireState.activeParticipantId === resolvedPlayerId ||
      (currentPlayer?.teamId && state.rapidFireState.activeTeamId === currentPlayer.teamId));
 
   // Active check for Pass Round
@@ -286,94 +299,125 @@ export function QuizClient({ session, participantId }: QuizClientProps) {
         ) : state?.currentRoundType === "RAPID_FIRE" ? (
           /* ─────────── RAPID FIRE ROUND UI ─────────── */
           <div className="space-y-6">
-            {isRapidFireActiveTurn ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-6 backdrop-blur-xl animate-pulse-glow text-left">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <span className="text-xs uppercase font-extrabold text-amber-400 tracking-wider flex items-center gap-1.5 animate-pulse">
-                    <Flame className="h-4.5 w-4.5 text-amber-500" />
-                    YOUR RAPID FIRE TURN!
-                  </span>
-                  <div className="flex gap-2">
-                    <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-red-400 border border-red-500/20">
-                      Round: {state.rapidFireState?.timeLeft}s
+            {isSelectedForRapidFire ? (
+              state.rapidFireState?.isRunning ? (
+                /* Active Running UI */
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-6 backdrop-blur-xl animate-pulse-glow text-left">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <span className="text-xs uppercase font-extrabold text-amber-400 tracking-wider flex items-center gap-1.5 animate-pulse">
+                      <Flame className="h-4.5 w-4.5 text-amber-500" />
+                      YOUR RAPID FIRE TURN!
                     </span>
-                    <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-indigo-400 border border-indigo-500/20">
-                      Q Limit: {state.rapidFireState?.questionTimeLeft}s
-                    </span>
+                    <div className="flex gap-2">
+                      <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-red-400 border border-red-500/20">
+                        Round: {state.rapidFireState?.timeLeft}s
+                      </span>
+                      <span className="bg-black/35 px-2.5 py-1 rounded-xl text-xs font-mono font-bold text-indigo-400 border border-indigo-500/20">
+                        Q Limit: {state.rapidFireState?.questionTimeLeft}s
+                      </span>
+                    </div>
+                  </div>
+
+                  {state.activeQuestion ? (
+                    <div className="space-y-4">
+                      <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                        Question #{(state.rapidFireState?.questionIndex || 0) + 1}
+                      </div>
+                      <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed font-heading">
+                        {state.activeQuestion.text}
+                      </h2>
+
+                      {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
+                        <div className="space-y-4 pt-2">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {state.activeQuestion.options.map((opt, idx) => {
+                              const isSelected = selectedOptionId === opt.id || submittedOptionId === opt.id;
+                              const prefix = String.fromCharCode(65 + idx);
+                              
+                              const isRevealed = revealState !== null;
+                              const isCorrectOption = isRevealed && revealState.correctOptionId === opt.id;
+                              const wasSelectedAtReveal = isRevealed && revealState.selectedOptionId === opt.id;
+
+                              let optionStyle = isSelected
+                                ? "bg-indigo-600/20 border-indigo-500 text-white font-bold"
+                                : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]";
+
+                              if (isRevealed) {
+                                if (isCorrectOption) {
+                                  optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
+                                } else if (wasSelectedAtReveal && !isCorrectOption) {
+                                  optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
+                                } else {
+                                  optionStyle = "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed";
+                                }
+                              }
+
+                              return (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => handleOptionSelect(opt.id)}
+                                  disabled={!!submittedOptionId || isRevealed}
+                                  className={`flex items-center gap-3 w-full border text-left p-3.5 rounded-xl text-xs font-semibold transition-all duration-200 ${optionStyle}`}
+                                >
+                                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
+                                    isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
+                                  }`}>
+                                    {prefix}
+                                  </span>
+                                  <span className="truncate">{opt.text}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {selectedOptionId && !submittedOptionId && !revealState && (
+                            <div className="flex justify-end animate-fade-in">
+                              <button
+                                onClick={handleRapidFireSubmit}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                              >
+                                Submit Answer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-xs text-gray-500 italic">
+                      Waiting for rapid fire questions to start...
+                    </div>
+                  )}
+                </div>
+              ) : state.rapidFireState && (state.rapidFireState.timeLeft <= 0 || state.rapidFireState.questionIndex > 0) ? (
+                /* Turn Completed UI */
+                <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-8 text-center space-y-4 backdrop-blur-xl animate-fade-in">
+                  <Trophy className="mx-auto h-12 w-12 text-emerald-400" />
+                  <h2 className="text-xl font-bold text-white font-heading">Rapid Fire Completed!</h2>
+                  <p className="text-sm text-gray-400">
+                    Your rapid fire turn has ended. Stand by for the host to proceed to the next challenge.
+                  </p>
+                  {state.rapidFireState.stats && (
+                    <div className="inline-grid grid-cols-2 gap-6 bg-black/25 p-4 border border-white/5 rounded-xl text-xs font-mono text-gray-300 mt-2">
+                      <div>Correct: <span className="text-emerald-400 font-bold">{state.rapidFireState.stats.correct || 0}</span></div>
+                      <div>Turn Score: <span className="text-indigo-400 font-bold">{state.rapidFireState.stats.score || 0} pts</span></div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Ready to Start UI */
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-8 text-center space-y-4 backdrop-blur-xl animate-fade-in">
+                  <Flame className="mx-auto h-12 w-12 text-amber-500 animate-pulse" />
+                  <h2 className="text-xl font-bold text-white font-heading">Ready for Rapid Fire!</h2>
+                  <p className="text-sm text-gray-400">
+                    You have been selected for this turn. Stand by for the coordinator to start the timer.
+                  </p>
+                  <div className="inline-block bg-black/25 px-4 py-2 border border-white/5 rounded-xl font-mono text-xs text-gray-300 mt-2">
+                    Round time: {state.rapidFireState?.config?.totalRoundTime || 60}s &bull; Limit per Q: {state.rapidFireState?.config?.questionTimeLimit || 10}s
                   </div>
                 </div>
-
-                {state.activeQuestion ? (
-                  <div className="space-y-4">
-                    <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                      Question #{(state.rapidFireState?.questionIndex || 0) + 1}
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed font-heading">
-                      {state.activeQuestion.text}
-                    </h2>
-
-                    {state.activeQuestion.options && state.activeQuestion.options.length > 0 && (
-                      <div className="space-y-4 pt-2">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {state.activeQuestion.options.map((opt, idx) => {
-                            const isSelected = selectedOptionId === opt.id || submittedOptionId === opt.id;
-                            const prefix = String.fromCharCode(65 + idx);
-                            
-                            const isRevealed = revealState !== null;
-                            const isCorrectOption = isRevealed && revealState.correctOptionId === opt.id;
-                            const wasSelectedAtReveal = isRevealed && revealState.selectedOptionId === opt.id;
-
-                            let optionStyle = isSelected
-                              ? "bg-indigo-600/20 border-indigo-500 text-white font-bold"
-                              : "bg-white/5 border-white/10 text-gray-300 hover:border-indigo-500/30 hover:bg-white/[0.08]";
-
-                            if (isRevealed) {
-                              if (isCorrectOption) {
-                                optionStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold";
-                              } else if (wasSelectedAtReveal && !isCorrectOption) {
-                                optionStyle = "bg-red-500/20 border-red-500 text-red-400 font-bold";
-                              } else {
-                                optionStyle = "bg-white/5 border-white/5 text-gray-600 cursor-not-allowed";
-                              }
-                            }
-
-                            return (
-                              <button
-                                key={opt.id}
-                                onClick={() => handleOptionSelect(opt.id)}
-                                disabled={!!submittedOptionId || isRevealed}
-                                className={`flex items-center gap-3 w-full border text-left p-3.5 rounded-xl text-xs font-semibold transition-all duration-200 ${optionStyle}`}
-                              >
-                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
-                                  isSelected ? "bg-indigo-500 text-white" : "bg-white/10 text-gray-400"
-                                }`}>
-                                  {prefix}
-                                </span>
-                                <span className="truncate">{opt.text}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {selectedOptionId && !submittedOptionId && !revealState && (
-                          <div className="flex justify-end animate-fade-in">
-                            <button
-                              onClick={handleRapidFireSubmit}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
-                            >
-                              Submit Answer
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-xs text-gray-500 italic">
-                    Waiting for rapid fire questions to start...
-                  </div>
-                )}
-              </div>
+              )
             ) : (
+              /* Spectating UI */
               <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-4 backdrop-blur-xl">
                 <Clock className="mx-auto h-12 w-12 text-gray-600 animate-pulse" />
                 <h2 className="text-xl font-bold text-white font-heading">Spectating Rapid Fire</h2>
