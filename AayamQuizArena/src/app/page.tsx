@@ -121,14 +121,14 @@ export default async function LandingPage() {
 
                     <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 gap-3 text-center text-xs">
                       <Link
-                        href={`/screen/${session.id}`}
+                        href={`/screen/${session.accessCode}`}
                         target="_blank"
                         className="rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 py-2.5 font-semibold text-white transition-all flex items-center justify-center gap-1 hover:border-white/25"
                       >
                         🖥️ Auditorium Screen
                       </Link>
                       <Link
-                        href={`/leaderboard/${session.id}`}
+                        href={`/leaderboard/${session.accessCode}`}
                         target="_blank"
                         className="rounded-xl bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 py-2.5 font-semibold text-indigo-300 hover:text-white transition-all flex items-center justify-center gap-1"
                       >

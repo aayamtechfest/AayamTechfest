@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { Server, Wifi, WifiOff } from "lucide-react";
 
-export function SocketStatusIndicator() {
+interface SocketStatusIndicatorProps {
+  isAdmin?: boolean;
+}
+
+export function SocketStatusIndicator({ isAdmin = false }: SocketStatusIndicatorProps) {
   const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const [serverType, setServerType] = useState<"render" | "local">("render");
   const [socketUrl, setSocketUrl] = useState("");
@@ -69,10 +73,14 @@ export function SocketStatusIndicator() {
       
       <span className="flex items-center gap-1">
         {status === "connected" ? (
-          serverType === "render" ? (
-            <span>Connected via <strong className="text-indigo-300">Render Server</strong></span>
+          isAdmin ? (
+            serverType === "render" ? (
+              <span>Connected via <strong className="text-indigo-300">Render Server</strong></span>
+            ) : (
+              <span>Connected via <strong className="text-purple-300">Local Event Server</strong></span>
+            )
           ) : (
-            <span>Connected via <strong className="text-purple-300">Local Event Server</strong></span>
+            <span>Arena Server: <strong className="text-emerald-400">Online</strong></span>
           )
         ) : status === "connecting" ? (
           <span className="text-gray-400">Connecting to server...</span>
@@ -83,7 +91,7 @@ export function SocketStatusIndicator() {
         )}
       </span>
 
-      {cleanedUrl && (
+      {isAdmin && cleanedUrl && (
         <span className="text-gray-500 text-[10px] border-l border-white/10 pl-2 font-mono hidden sm:inline" title={socketUrl}>
           {cleanedUrl}
         </span>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils";
+import { SocketStatusIndicator } from "@/components/shared/status-indicator";
 import {
   BookOpen,
   Activity,
@@ -104,13 +105,18 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white md:text-3xl font-heading">
-          Quiz Arena Dashboard
-        </h1>
-        <p className="mt-1 text-gray-400">
-          Monitor your live quiz competitions and coordinate rounds in real-time.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white md:text-3xl font-heading">
+            Quiz Arena Dashboard
+          </h1>
+          <p className="mt-1 text-gray-400">
+            Monitor your live quiz competitions and coordinate rounds in real-time.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <SocketStatusIndicator isAdmin={true} />
+        </div>
       </div>
 
       {/* Stat cards */}
