@@ -7,6 +7,7 @@ import {
   updateAboutCard, 
   deleteAboutCard 
 } from "@/actions/about.actions";
+import { updateSettingsField } from "@/actions/settings.actions";
 import * as Icons from "lucide-react";
 import { 
   Plus, 
@@ -51,10 +52,13 @@ interface AboutCard {
 
 interface AboutCardsClientProps {
   initialCards: AboutCard[];
+  initialAboutContent: string;
 }
 
-export default function AboutCardsClient({ initialCards }: AboutCardsClientProps) {
+export default function AboutCardsClient({ initialCards, initialAboutContent }: AboutCardsClientProps) {
   const [cards, setCards] = useState<AboutCard[]>(initialCards);
+  const [aboutContent, setAboutContent] = useState(initialAboutContent);
+  const [isSavingAboutContent, setIsSavingAboutContent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
@@ -153,8 +157,49 @@ export default function AboutCardsClient({ initialCards }: AboutCardsClientProps
     }
   };
 
+  const handleSaveAboutContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAboutContent(true);
+    const res = await updateSettingsField("aboutContent", aboutContent);
+    setIsSavingAboutContent(false);
+    if (res.success) {
+      toast.success("Official Description updated successfully!");
+    } else {
+      toast.error(res.error || "Failed to update description.");
+    }
+  };
+
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="space-y-8">
+      {/* Official Description Section */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4 shadow-xl">
+        <h2 className="text-lg font-bold text-white font-heading border-b border-white/5 pb-2">
+          Official Description
+        </h2>
+        <p className="text-xs text-gray-400">
+          Manage the main introductory text block shown on the public About page. Only a single block is permitted.
+        </p>
+        <form onSubmit={handleSaveAboutContent} className="space-y-4">
+          <textarea
+            value={aboutContent}
+            onChange={(e) => setAboutContent(e.target.value)}
+            placeholder="Official Description..."
+            rows={5}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500 resize-y"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isSavingAboutContent}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {isSavingAboutContent ? "Saving..." : "Save Official Description"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
       {/* Cards List (Left 2 columns) */}
       <div className="lg:col-span-2 space-y-4">
         {cards.length === 0 ? (
@@ -425,5 +470,6 @@ export default function AboutCardsClient({ initialCards }: AboutCardsClientProps
         )}
       </div>
     </div>
+  </div>
   );
 }

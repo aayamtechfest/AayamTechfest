@@ -75,6 +75,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterRoundId, setFilterRoundId] = useState<string>("ALL");
+  const [filterSet, setFilterSet] = useState<string>("ALL");
   const [collapsedRounds, setCollapsedRounds] = useState<Record<string, boolean>>({});
 
   // Rounds tab states
@@ -112,6 +113,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
       points: 10,
       explanation: "",
       templateRoundId: "",
+      questionSet: "A",
       options: [
         { text: "", isCorrect: false, sortOrder: 0 },
         { text: "", isCorrect: false, sortOrder: 1 },
@@ -136,6 +138,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
       points: 10,
       explanation: "",
       templateRoundId: quiz.templateRounds?.[0]?.id || "",
+      questionSet: "A",
       options: [
         { text: "Option A", isCorrect: true, sortOrder: 0 },
         { text: "Option B", isCorrect: false, sortOrder: 1 },
@@ -156,6 +159,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
       points: q.points ?? 10,
       explanation: q.explanation || "",
       templateRoundId: q.templateRoundId || "",
+      questionSet: q.questionSet || "A",
       options: q.options.map((opt: any) => ({
         id: opt.id,
         text: opt.text,
@@ -369,6 +373,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     "roundNumber": 1,
     "roundTitle": "Simultaneous Answer",
     "roundType": "MCQ",
+    "questionSet": "A",
     "options": [
       { "text": "TypeScript", "isCorrect": true },
       { "text": "Python", "isCorrect": false },
@@ -384,6 +389,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     "roundNumber": 2,
     "roundTitle": "Buzzer Round",
     "roundType": "BUZZER",
+    "questionSet": "B",
     "options": [
       { "text": "useState", "isCorrect": true },
       { "text": "useServerAction", "isCorrect": false },
@@ -398,6 +404,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     "roundNumber": 2,
     "roundTitle": "Buzzer Round",
     "roundType": "BUZZER",
+    "questionSet": "C",
     "options": [
       { "text": "True", "isCorrect": true },
       { "text": "False", "isCorrect": false }
@@ -411,6 +418,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
     "roundNumber": 3,
     "roundTitle": "Rapid Fire Round",
     "roundType": "RAPID_FIRE",
+    "questionSet": "D",
     "options": [
       { "text": "True", "isCorrect": true },
       { "text": "False", "isCorrect": false }
@@ -811,7 +819,7 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                   {errors.text && <p className="text-xs text-red-400">{errors.text.message}</p>}
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-4">
+                <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-5">
                   {/* Round Selection */}
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-300">Quiz Round</label>
@@ -825,6 +833,20 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                           R{r.roundNumber}: {r.title}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  {/* Question Set selection */}
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-gray-300">Question Set</label>
+                    <select
+                      {...register("questionSet")}
+                      className="w-full rounded-xl border border-white/10 bg-[#1a1a2e] px-4 py-2.5 text-white outline-none focus:border-indigo-500"
+                    >
+                      <option value="A">Set A</option>
+                      <option value="B">Set B</option>
+                      <option value="C">Set C</option>
+                      <option value="D">Set D</option>
                     </select>
                   </div>
 
@@ -972,7 +994,8 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
               const matchesType = filterType === "ALL" || q.type === filterType;
               const matchesRound = filterRoundId === "ALL" 
                 || (filterRoundId === "UNASSIGNED" ? !q.templateRoundId : q.templateRoundId === filterRoundId);
-              return matchesType && matchesRound;
+              const matchesSet = filterSet === "ALL" || (q.questionSet || "A") === filterSet;
+              return matchesType && matchesRound && matchesSet;
             });
 
             const roundSummary = (quiz.templateRounds || []).map((r: any) => {
@@ -983,6 +1006,61 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
 
             return (
               <div className="space-y-4">
+                {/* Question Distribution Summary Dashboard */}
+                {quiz.questions.length > 0 && (
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-xl space-y-3">
+                    <h3 className="text-xs font-bold text-gray-300 font-heading uppercase tracking-wider">
+                      Question Distribution Summary
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {quiz.templateRounds?.map((r: any) => {
+                        const roundQs = quiz.questions.filter((q: any) => q.templateRoundId === r.id);
+                        const setCounts = roundQs.reduce((acc: any, q: any) => {
+                          const set = q.questionSet || "A";
+                          acc[set] = (acc[set] || 0) + 1;
+                          return acc;
+                        }, {});
+                        return (
+                          <div key={r.id} className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-1">
+                            <div className="flex items-center justify-between text-xs font-semibold text-white">
+                              <span>R{r.roundNumber}: {r.title}</span>
+                              <span className="text-indigo-400 font-mono font-bold">{roundQs.length} qs</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-400 pt-1">
+                              {Object.entries(setCounts).map(([set, count]) => (
+                                <span key={set} className="bg-white/5 border border-white/5 px-1.5 py-0.5 rounded text-indigo-300">
+                                  Set {set}: {count as number}
+                                </span>
+                              ))}
+                              {roundQs.length === 0 && <span className="italic text-gray-500">No questions</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {unassignedCount > 0 && (
+                        <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold text-white">
+                            <span>Unassigned / General</span>
+                            <span className="text-purple-400 font-mono font-bold">{unassignedCount} qs</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-400 pt-1">
+                            {Object.entries(
+                              quiz.questions.filter((q: any) => !q.templateRoundId).reduce((acc: any, q: any) => {
+                                const set = q.questionSet || "A";
+                                acc[set] = (acc[set] || 0) + 1;
+                                return acc;
+                              }, {})
+                            ).map(([set, count]) => (
+                              <span key={set} className="bg-white/5 border border-white/5 px-1.5 py-0.5 rounded text-purple-300">
+                                Set {set}: {count as number}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Filters Bar */}
                 <div className="flex flex-wrap gap-4 items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl animate-fade-in">
                   <div className="flex flex-wrap items-center gap-4 text-xs">
@@ -1018,13 +1096,29 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                       </select>
                     </div>
 
-                    {(filterType !== "ALL" || filterRoundId !== "ALL") && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 font-semibold uppercase tracking-wider">Set:</span>
+                      <select
+                        value={filterSet}
+                        onChange={(e) => setFilterSet(e.target.value)}
+                        className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-white outline-none focus:border-indigo-500"
+                      >
+                        <option value="ALL">All Sets</option>
+                        <option value="A">Set A</option>
+                        <option value="B">Set B</option>
+                        <option value="C">Set C</option>
+                        <option value="D">Set D</option>
+                      </select>
+                    </div>
+
+                    {(filterType !== "ALL" || filterRoundId !== "ALL" || filterSet !== "ALL") && (
                       <button
                         onClick={() => {
                           setFilterType("ALL");
                           setFilterRoundId("ALL");
+                          setFilterSet("ALL");
                         }}
-                        className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-4"
+                        className="text-indigo-400 hover:text-indigo-300 text-xs border-b border-indigo-400/20 hover:border-indigo-300/40 pb-0.5"
                       >
                         Clear Filters
                       </button>
@@ -1147,6 +1241,9 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
                                         <div className="flex gap-1.5">
                                           <span className="rounded bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
                                             {q.type}
+                                          </span>
+                                          <span className="rounded bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 uppercase tracking-wider">
+                                            Set {q.questionSet || "A"}
                                           </span>
                                         </div>
                                       </div>

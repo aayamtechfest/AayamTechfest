@@ -389,6 +389,7 @@ model QuizQuestion {
   points          Int?                 // Overrides round-level points if set
   sortOrder       Int                  @default(0)
   explanation     String?              @db.Text
+  questionSet     String?              @default("A")
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   options         QuizQuestionOption[]
@@ -552,3 +553,15 @@ model QuizQuestionUsage {
   @@index([roundId])
   @@index([questionId])
 }
+
+// ────────────────────── About Cards ──────────────────────
+model AboutCard {
+  id          String   @id @default(cuid())
+  iconName    String   // Lucide icon name e.g. "Trophy", "Users"
+  title       String
+  description String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

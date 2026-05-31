@@ -15,7 +15,7 @@ export async function createQuestion(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options } = parsed.data;
+    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options, questionSet } = parsed.data;
 
     const question = await prisma.$transaction(async (tx) => {
       const q = await tx.quizQuestion.create({
@@ -28,6 +28,7 @@ export async function createQuestion(
           points,
           explanation,
           templateRoundId,
+          questionSet: questionSet || "A",
         },
       });
 
@@ -63,7 +64,7 @@ export async function updateQuestion(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options } = parsed.data;
+    const { text, type, mediaUrl, timeLimit, points, explanation, templateRoundId, options, questionSet } = parsed.data;
 
     const question = await prisma.quizQuestion.findUnique({
       where: { id: questionId },
@@ -85,6 +86,7 @@ export async function updateQuestion(
           points,
           explanation,
           templateRoundId,
+          questionSet: questionSet || "A",
         },
       });
 
@@ -236,6 +238,7 @@ export async function importQuestions(
               timeLimit: item.timeLimit !== undefined ? parseInt(item.timeLimit) : 30,
               points: item.points !== undefined ? parseInt(item.points) : 10,
               explanation: item.explanation || null,
+              questionSet: item.questionSet || "A",
             },
           });
 
@@ -265,5 +268,67 @@ export async function importQuestions(
   } catch (error: any) {
     console.error("Failed to import questions:", error);
     return { success: false, error: error.message || "Failed to import questions" };
+  }
+}
+
+export async function getFilteredQuestions(filters: {
+  quizId?: string;
+  type?: string;
+  roundId?: string;
+  questionSet?: string;
+}) {
+  try {
+    const where: any = {};
+    if (filters.quizId) where.quizId = filters.quizId;
+    if (filters.type) where.type = filters.type;
+    if (filters.roundId) where.templateRoundId = filters.roundId;
+    if (filters.questionSet) where.questionSet = filters.questionSet;
+
+    const questions = await prisma.quizQuestion.findMany({
+      where,
+      include: {
+        quiz: { select: { name: true, mode: true } },
+        options: { orderBy: { sortOrder: "asc" } },
+        templateRound: { select: { title: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const rounds = filters.quizId
+      ? await prisma.quizTemplateRound.findMany({
+          where: { quizId: filters.quizId },
+          select: { id: true, title: true },
+          orderBy: { roundNumber: "asc" },
+        })
+      : [];
+
+    let roundSummary: { name: string; count: number }[] = [];
+    if (filters.quizId) {
+      const quizRounds = await prisma.quizTemplateRound.findMany({
+        where: { quizId: filters.quizId },
+        select: {
+          id: true,
+          title: true,
+          questions: { select: { id: true } },
+        },
+        orderBy: { roundNumber: "asc" },
+      });
+      roundSummary = quizRounds.map((r) => ({
+        name: r.title,
+        count: r.questions.length,
+      }));
+    }
+
+    return {
+      success: true,
+      data: {
+        questions,
+        rounds: rounds.map((r) => ({ id: r.id, name: r.title })),
+        roundSummary,
+      },
+    };
+  } catch (error: any) {
+    console.error("Failed to fetch filtered questions:", error);
+    return { success: false, error: "Failed to fetch questions" };
   }
 }

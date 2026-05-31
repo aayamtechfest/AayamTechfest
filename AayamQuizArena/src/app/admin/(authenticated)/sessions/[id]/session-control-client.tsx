@@ -65,6 +65,8 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   const [rfQuestionTime, setRfQuestionTime] = useState(10);
   const [rfPoints, setRfPoints] = useState(10);
   const [rfNegativeMarking, setRfNegativeMarking] = useState(false);
+  const [rfQuestionSet, setRfQuestionSet] = useState("A");
+  const [rfPoolFilterSet, setRfPoolFilterSet] = useState("ALL");
 
   useEffect(() => {
     const socket = getSocket();
@@ -224,6 +226,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
         questionTimeLimit: rfQuestionTime,
         pointsPerQuestion: rfPoints,
         negativeMarking: rfNegativeMarking,
+        selectedSet: rfQuestionSet,
       }
     });
     toast.success("Rapid Fire team configured!");
@@ -244,6 +247,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
         questionTimeLimit: rfQuestionTime,
         pointsPerQuestion: rfPoints,
         negativeMarking: rfNegativeMarking,
+        selectedSet: rfQuestionSet,
       }
     });
     setTimeout(() => {
@@ -365,6 +369,9 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
       return false;
     }
     if (!showUsedQuestions && q.usages && q.usages.length > 0) {
+      return false;
+    }
+    if (activeRound?.type === "RAPID_FIRE" && rfPoolFilterSet !== "ALL" && (q.questionSet || "A") !== rfPoolFilterSet) {
       return false;
     }
     return true;
@@ -834,7 +841,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
                 {/* Rapid Fire Configuration Inputs */}
                 {(!quizState?.rapidFireState || !quizState.rapidFireState.isRunning) && (
-                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-5 p-3 bg-white/5 rounded-xl border border-white/5">
                     <div>
                       <label className="text-[10px] text-gray-500 uppercase block mb-1">Total Time (s)</label>
                       <input
@@ -862,7 +869,20 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                         className="w-full rounded-lg border border-white/10 bg-[#121225] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="flex flex-col justify-end pb-1">
+                    <div>
+                      <label className="text-[10px] text-gray-500 uppercase block mb-1">Question Set</label>
+                      <select
+                        value={rfQuestionSet}
+                        onChange={(e) => setRfQuestionSet(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-[#121225] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                      >
+                        <option value="A">Set A</option>
+                        <option value="B">Set B</option>
+                        <option value="C">Set C</option>
+                        <option value="D">Set D</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col justify-end pb-1 col-span-2 sm:col-span-1">
                       <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
                         <input
                           type="checkbox"
@@ -1015,17 +1035,35 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
             {/* Round Questions list */}
             <div className="space-y-3 pt-4 border-t border-white/5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Round Question Pool:</h3>
-                <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={showUsedQuestions}
-                    onChange={(e) => setShowUsedQuestions(e.target.checked)}
-                    className="rounded border-white/10 bg-[#121225] text-indigo-600 focus:ring-0 focus:ring-offset-0"
-                  />
-                  Show Used Questions
-                </label>
+                <div className="flex items-center gap-4">
+                  {activeRound?.type === "RAPID_FIRE" && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400">Filter Set:</span>
+                      <select
+                        value={rfPoolFilterSet}
+                        onChange={(e) => setRfPoolFilterSet(e.target.value)}
+                        className="rounded-lg border border-white/10 bg-[#121225] px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-500"
+                      >
+                        <option value="ALL">All Sets</option>
+                        <option value="A">Set A</option>
+                        <option value="B">Set B</option>
+                        <option value="C">Set C</option>
+                        <option value="D">Set D</option>
+                      </select>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={showUsedQuestions}
+                      onChange={(e) => setShowUsedQuestions(e.target.checked)}
+                      className="rounded border-white/10 bg-[#121225] text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                    />
+                    Show Used Questions
+                  </label>
+                </div>
               </div>
               <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
                 {roundQuestions.map((q: any, idx: number) => {
@@ -1050,6 +1088,9 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                           <span className="truncate max-w-[200px]" title={q.text}>{q.text}</span>
                           <span className="text-[9px] uppercase tracking-wider font-bold bg-white/10 px-1 rounded">
                             {q.type}
+                          </span>
+                          <span className="rounded bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 uppercase tracking-wider">
+                            Set {q.questionSet || "A"}
                           </span>
                         </div>
 

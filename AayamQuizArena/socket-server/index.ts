@@ -699,25 +699,40 @@ io.on("connection", (socket) => {
         // Automatically advance to the next question in the round question pool
         rfState.questionIndex++;
         const templateRoundId = question.round?.settings && (question.round.settings as any).templateRoundId;
+        const selectedSet = rfState.config.selectedSet || "A";
         const roundQuestions = await prisma.quizQuestion.findMany({
-          where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+          where: templateRoundId 
+            ? { templateRoundId, questionSet: selectedSet } 
+            : { quizId: cache.sessionId, questionSet: selectedSet },
           orderBy: { sortOrder: "asc" },
         });
 
         if (rfState.questionIndex < roundQuestions.length) {
           cache.activeQuestionId = roundQuestions[rfState.questionIndex].id;
           rfState.questionTimeLeft = rfState.config.questionTimeLimit;
-          cache.questionStartedAt = new Date();
-          cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
-          rfState.pausedForSelection = false;
+          rfState.pausedForSelection = true;
+          cache.questionStartedAt = new Date(Date.now() + 1500);
+          cache.questionEndsAt = new Date(Date.now() + (rfState.config.questionTimeLimit + 1.5) * 1000);
+          
+          socket.emit("answer-feedback", { success: true, message: "Answer logged" });
+          await broadcastState(sessionId);
+
+          setTimeout(async () => {
+            const currentCache = activeSessions.get(sessionId);
+            if (currentCache && currentCache.rapidFireState && currentCache.rapidFireState.isRunning) {
+              currentCache.rapidFireState.pausedForSelection = false;
+              currentCache.questionStartedAt = new Date();
+              currentCache.questionEndsAt = new Date(Date.now() + currentCache.rapidFireState.config.questionTimeLimit * 1000);
+              await broadcastState(sessionId);
+            }
+          }, 1500);
         } else {
           rfState.isRunning = false;
           if (rfState.timerInterval) clearInterval(rfState.timerInterval);
           io.to(`session:${sessionId}`).emit("rapid-fire-expired");
+          socket.emit("answer-feedback", { success: true, message: "Answer logged" });
+          await broadcastState(sessionId);
         }
-
-        socket.emit("answer-feedback", { success: true, message: "Answer logged" });
-        broadcastState(sessionId);
         return;
       }
 
@@ -1000,6 +1015,7 @@ io.on("connection", (socket) => {
         const questionTimeLimit = config?.questionTimeLimit || 10;
         const pointsPerQuestion = config?.pointsPerQuestion || 10;
         const negativeMarking = config?.negativeMarking === true;
+        const selectedSet = config?.selectedSet || "A";
 
         cache.rapidFireState = {
           activeTeamId: teamId || null,
@@ -1015,6 +1031,7 @@ io.on("connection", (socket) => {
             questionTimeLimit,
             pointsPerQuestion,
             negativeMarking,
+            selectedSet,
           },
           stats: {
             attempted: 0,
@@ -1031,7 +1048,9 @@ io.on("connection", (socket) => {
         });
         const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
         const roundQuestions = await prisma.quizQuestion.findMany({
-          where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+          where: templateRoundId 
+            ? { templateRoundId, questionSet: selectedSet } 
+            : { quizId: cache.sessionId, questionSet: selectedSet },
           orderBy: { sortOrder: "asc" },
         });
 
@@ -1058,8 +1077,11 @@ io.on("connection", (socket) => {
           where: { id: cache.currentRoundId! },
         });
         const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
+        const selectedSet = cache.rapidFireState.config.selectedSet || "A";
         const roundQuestions = await prisma.quizQuestion.findMany({
-          where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+          where: templateRoundId 
+            ? { templateRoundId, questionSet: selectedSet } 
+            : { quizId: cache.sessionId, questionSet: selectedSet },
           orderBy: { sortOrder: "asc" },
         });
 
@@ -1255,24 +1277,38 @@ io.on("connection", (socket) => {
         where: { id: cache.currentRoundId! },
       });
       const templateRoundId = round?.settings && (round.settings as any).templateRoundId;
+      const selectedSet = rfState.config.selectedSet || "A";
       const roundQuestions = await prisma.quizQuestion.findMany({
-        where: templateRoundId ? { templateRoundId } : { quizId: cache.sessionId },
+        where: templateRoundId 
+          ? { templateRoundId, questionSet: selectedSet } 
+          : { quizId: cache.sessionId, questionSet: selectedSet },
         orderBy: { sortOrder: "asc" },
       });
 
       if (rfState.questionIndex < roundQuestions.length) {
         cache.activeQuestionId = roundQuestions[rfState.questionIndex].id;
         rfState.questionTimeLeft = rfState.config.questionTimeLimit;
-        cache.questionStartedAt = new Date();
-        cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
-        rfState.pausedForSelection = false;
+        rfState.pausedForSelection = true;
+        cache.questionStartedAt = new Date(Date.now() + 1500);
+        cache.questionEndsAt = new Date(Date.now() + (rfState.config.questionTimeLimit + 1.5) * 1000);
+        
+        await broadcastState(sessionId);
+
+        setTimeout(async () => {
+          const currentCache = activeSessions.get(sessionId);
+          if (currentCache && currentCache.rapidFireState && currentCache.rapidFireState.isRunning) {
+            currentCache.rapidFireState.pausedForSelection = false;
+            currentCache.questionStartedAt = new Date();
+            currentCache.questionEndsAt = new Date(Date.now() + currentCache.rapidFireState.config.questionTimeLimit * 1000);
+            await broadcastState(sessionId);
+          }
+        }, 1500);
       } else {
         rfState.isRunning = false;
         if (rfState.timerInterval) clearInterval(rfState.timerInterval);
         io.to(`session:${sessionId}`).emit("rapid-fire-expired");
+        await broadcastState(sessionId);
       }
-
-      broadcastState(sessionId);
     } catch (err) {
       console.error("Evaluate rapid fire error:", err);
     }

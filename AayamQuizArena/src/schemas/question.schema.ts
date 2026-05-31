@@ -15,6 +15,7 @@ export const questionSchema = z.object({
   points: z.number().int().nonnegative().nullable().optional(),
   explanation: z.string().nullable().optional(),
   templateRoundId: z.string().nullable().optional(),
+  questionSet: z.string().nullable().optional(),
   options: z.array(questionOptionSchema),
 });
 
