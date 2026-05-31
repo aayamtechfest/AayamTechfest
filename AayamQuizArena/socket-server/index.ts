@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import * as dotenv from "dotenv";
+import * as os from "os";
 
 dotenv.config();
 
@@ -615,7 +616,6 @@ io.on("connection", (socket) => {
       // Handle RAPID_FIRE round team scoring & automatic progression
       if (question.round?.type === "RAPID_FIRE" && cache.rapidFireState?.isRunning) {
         const rfState = cache.rapidFireState;
-        rfState.pausedForSelection = false;
         rfState.selectedOptionId = null;
         
         // Verify sender belongs to active team/participant
@@ -709,6 +709,7 @@ io.on("connection", (socket) => {
           rfState.questionTimeLeft = rfState.config.questionTimeLimit;
           cache.questionStartedAt = new Date();
           cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
+          rfState.pausedForSelection = false;
         } else {
           rfState.isRunning = false;
           if (rfState.timerInterval) clearInterval(rfState.timerInterval);
@@ -1129,6 +1130,24 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("admin:stop-rapid-fire", async ({ sessionId }) => {
+    try {
+      const cache = activeSessions.get(sessionId);
+      if (cache && cache.rapidFireState) {
+        cache.rapidFireState.isRunning = false;
+        if (cache.rapidFireState.timerInterval) {
+          clearInterval(cache.rapidFireState.timerInterval);
+          cache.rapidFireState.timerInterval = null;
+        }
+        cache.rapidFireState.pausedForSelection = false;
+        cache.rapidFireState.selectedOptionId = null;
+        await broadcastState(sessionId);
+      }
+    } catch (err) {
+      console.error("Error in admin:stop-rapid-fire handler:", err);
+    }
+  });
+
   socket.on("rapid-fire:select-option", ({ sessionId, selectedOptionId }) => {
     try {
       const cache = activeSessions.get(sessionId);
@@ -1148,7 +1167,6 @@ io.on("connection", (socket) => {
       if (!cache || !cache.rapidFireState) return;
 
       const rfState = cache.rapidFireState;
-      rfState.pausedForSelection = false;
       rfState.selectedOptionId = null;
       const participantId = rfState.activeParticipantId;
       const teamId = rfState.activeTeamId;
@@ -1247,6 +1265,7 @@ io.on("connection", (socket) => {
         rfState.questionTimeLeft = rfState.config.questionTimeLimit;
         cache.questionStartedAt = new Date();
         cache.questionEndsAt = new Date(Date.now() + rfState.config.questionTimeLimit * 1000);
+        rfState.pausedForSelection = false;
       } else {
         rfState.isRunning = false;
         if (rfState.timerInterval) clearInterval(rfState.timerInterval);
@@ -1454,6 +1473,29 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Socket.IO Server running on port ${PORT}`);
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name in interfaces) {
+    const netList = interfaces[name];
+    if (netList) {
+      for (const net of netList) {
+        if ((net.family === "IPv4" || (net.family as any) === 4) && !net.internal) {
+          return net.address;
+        }
+      }
+    }
+  }
+  return "127.0.0.1";
+}
+
+httpServer.listen(Number(PORT), "0.0.0.0", () => {
+  const localIp = getLocalIpAddress();
+  console.log("\n========================================");
+  console.log("🟢 Socket Server Started");
+  console.log(`\nLocal:\n  http://localhost:${PORT}`);
+  if (localIp && localIp !== "127.0.0.1") {
+    console.log(`\nNetwork:\n  http://${localIp}:${PORT}`);
+  }
+  console.log(`\nPort:\n  ${PORT}`);
+  console.log("========================================\n");
 });

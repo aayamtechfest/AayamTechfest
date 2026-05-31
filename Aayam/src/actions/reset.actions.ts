@@ -110,10 +110,10 @@ export async function resetSystemAction(confirmationText: string): Promise<Actio
       aboutContent: `<p>AAYAM is a premier university-level event and hackathon platform that brings together the brightest minds to compete in fast coding, quiz, UI/UX design, and problem-solving challenges.</p>
 <p>Our mission is to foster innovation, collaboration, and technical excellence among students. Whether you're a beginner or an experienced developer, AAYAM offers competitions for every skill level.</p>
 <p>Join us to showcase your talent, learn from peers, win prizes, and build lasting connections in the tech community.</p>`,
-      logoUrl: "/Logo.png",
-      headerLogoUrl: "/Logo.png",
-      footerLogoUrl: "/Logo.png",
-      faviconUrl: "/Logo.png",
+      logoUrl: "/LogoGIF.gif",
+      headerLogoUrl: "/LogoGIF.gif",
+      footerLogoUrl: "/LogoGIF.gif",
+      faviconUrl: "/LogoGIF.gif",
       heroBannerUrl: "",
       paymentQrCodeUrl: "",
       paymentInstructions: "Scan the QR code below to make the payment. After payment, enter the UTR/Reference number and upload a screenshot of the payment confirmation.",

@@ -100,7 +100,7 @@ function JoinLobbyContent() {
         {/* Branding */}
         <div className="mb-6 text-center flex flex-col items-center">
           <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-black/40 mb-3 flex items-center justify-center">
-            <img src="/Logo.png" alt="AAYAM Logo" className="h-8 w-8 object-contain" />
+            <img src="/LogoGIF.gif" alt="AAYAM Logo" className="h-8 w-8 object-contain" />
           </div>
           <h1 className="bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent font-heading">
             AAYAM QUIZ ARENA

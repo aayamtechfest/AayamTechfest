@@ -17,6 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 import { LoadingScreen } from "@/components/shared/loading-screen";
+import { ServerWakeup } from "@/components/shared/server-wakeup";
 import { getSettings } from "@/actions/settings.actions";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const title = settings?.eventTitle || "AAYAM - University Event & Hackathon Platform";
     const siteName = settings?.siteName || "AAYAM";
     const description = settings?.tagline || "AAYAM is the ultimate university event and hackathon management platform.";
-    const favicon = settings?.faviconUrl || "/Logo.png";
+    const favicon = settings?.faviconUrl || "/LogoGIF.gif";
 
     return {
       title,
@@ -62,18 +63,24 @@ export async function generateMetadata(): Promise<Metadata> {
         google: "-tLV5LGzklIMBfcWQzZMSEMgq4uT35lAkcimmIBuXtw",
       },
       icons: {
-        icon: "/Logo.png",
-        shortcut: "/Logo.png",
-        apple: "/Logo.png",
+        icon: "/LogoGIF.gif",
+        shortcut: "/LogoGIF.gif",
+        apple: "/LogoGIF.gif",
       },
     };
   }
 }
-export default function RootLayout({
+import { prisma } from "@/lib/prisma";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Fetch custom socket URL overriding env variable if set
+  const settings = await prisma.settings.findFirst().catch(() => null);
+  const socketUrl = settings?.socketUrl || process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+
   return (
     <html
       lang="en"
@@ -81,32 +88,40 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__SOCKET_URL__ = ${JSON.stringify(socketUrl)};`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
-  <LoadingScreen />
-  {children}
+        <ServerWakeup />
+        <LoadingScreen />
+        {children}
 
-  <Toaster
-    position="top-right"
-    theme="dark"
-    richColors
-    closeButton
-  />
+        <Toaster
+          position="top-right"
+          theme="dark"
+          richColors
+          closeButton
+        />
 
-  <Script
-    src="https://www.googletagmanager.com/gtag/js?id=G-7LNPV0D7NN"
-    strategy="afterInteractive"
-  />
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-7LNPV0D7NN"
+          strategy="afterInteractive"
+        />
 
-  <Script id="google-analytics" strategy="afterInteractive">
-    {`
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
 
-      gtag('config', 'G-7LNPV0D7NN');
-    `}
-  </Script>
-</body>
+            gtag('config', 'G-7LNPV0D7NN');
+          `}
+        </Script>
+      </body>
     </html>
   );
 }

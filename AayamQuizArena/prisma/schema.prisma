@@ -178,6 +178,7 @@ model Settings {
   statParticipants    String?  @default("1000+")
   statEvents          String?  @default("20+")
   statColleges        String?  @default("15+")
+  socketUrl           String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

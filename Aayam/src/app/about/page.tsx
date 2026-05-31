@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { getSettings } from "@/actions/settings.actions";
+import { getAboutCards } from "@/actions/about.actions";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { Sparkles, Target, Compass, Award } from "lucide-react";
+import * as Icons from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,6 +15,29 @@ export const metadata: Metadata = {
 
 export default async function AboutPage() {
   const settings = await getSettings();
+  const dbAboutCards = await getAboutCards();
+
+  // Fallback to hardcoded defaults if DB has no cards
+  const aboutCards = dbAboutCards.length > 0 ? dbAboutCards : [
+    {
+      id: "default-mission",
+      iconName: "Target",
+      title: "Our Mission",
+      description: "To provide a platform that enables students to learn, build, and deploy technical solutions while competing with standard industry parameters.",
+    },
+    {
+      id: "default-vision",
+      iconName: "Compass",
+      title: "Our Vision",
+      description: "To bridge the gap between academic theory and practical software engineering, preparing developers for future technology challenges.",
+    },
+    {
+      id: "default-values",
+      iconName: "Award",
+      title: "Core Value",
+      description: "We believe in open competition, fair evaluation, active learning, and pushing the boundaries of coding and interface design.",
+    },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0f0f23]">
@@ -24,7 +48,7 @@ export default async function AboutPage() {
           {/* Hero Section */}
           <div className="text-center mb-16 animate-slide-down">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold text-indigo-400 uppercase tracking-widest">
-              <Sparkles className="h-3.5 w-3.5" />
+              <Icons.Sparkles className="h-3.5 w-3.5" />
               <span>About the Fest</span>
             </div>
             <h1 className="font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
@@ -57,35 +81,25 @@ export default async function AboutPage() {
 
           {/* Pillars: Mission, Vision, Values */}
           <div className="grid gap-6 md:grid-cols-3 animate-slide-up [animation-delay:300ms]">
-            <div className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl transition-all duration-300 hover:scale-[1.03] hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 hover:bg-white/10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 mb-4 border border-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
-                <Target className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white transition-colors duration-300 group-hover:text-indigo-300">Our Mission</h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-                To provide a platform that enables students to learn, build, and deploy technical solutions while competing with standard industry parameters.
-              </p>
-            </div>
-
-            <div className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl transition-all duration-300 hover:scale-[1.03] hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 hover:bg-white/10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 mb-4 border border-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
-                <Compass className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white transition-colors duration-300 group-hover:text-indigo-300">Our Vision</h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-                To bridge the gap between academic theory and practical software engineering, preparing developers for future technology challenges.
-              </p>
-            </div>
-
-            <div className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl transition-all duration-300 hover:scale-[1.03] hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 hover:bg-white/10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 mb-4 border border-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
-                <Award className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white transition-colors duration-300 group-hover:text-indigo-300">Core Value</h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-                We believe in open competition, fair evaluation, active learning, and pushing the boundaries of coding and interface design.
-              </p>
-            </div>
+            {aboutCards.map((card) => {
+              const IconComponent = (Icons as any)[card.iconName] || Icons.HelpCircle;
+              return (
+                <div 
+                  key={card.id}
+                  className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md shadow-xl transition-all duration-300 hover:scale-[1.03] hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 hover:bg-white/10"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 mb-4 border border-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
+                    <IconComponent className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white transition-colors duration-300 group-hover:text-indigo-300">
+                    {card.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+                    {card.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
         </div>

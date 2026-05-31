@@ -77,7 +77,7 @@ export function LobbyClient({ session, participantId }: LobbyClientProps) {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 overflow-hidden rounded-full border border-white/15 bg-black/40 p-0.5">
-              <img src="/Logo.png" alt="AAYAM Logo" className="h-full w-full object-contain" />
+              <img src="/LogoGIF.gif" alt="AAYAM Logo" className="h-full w-full object-contain" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white font-heading leading-none">

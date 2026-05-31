@@ -62,6 +62,9 @@ export async function getSessionById(id: string): Promise<any | null> {
         },
         teams: {
           orderBy: { totalScore: "desc" },
+          include: {
+            participants: true,
+          },
         },
       },
     });

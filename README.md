@@ -4,7 +4,7 @@
   </a>
 </p>
 
-<h1 align="center">AAYAM Techfest Monorepo</h1>
+<h1 align="center">AAYAM Techfest</h1>
 
 <p align="center">
   <strong>The Premier University Event Management & Real-Time Quiz Arena Platform</strong>

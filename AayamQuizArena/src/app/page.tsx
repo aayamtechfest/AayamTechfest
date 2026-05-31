@@ -2,8 +2,24 @@ import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Trophy, Zap, Users, BarChart3, ArrowRight } from "lucide-react";
+import { SocketStatusIndicator } from "@/components/shared/status-indicator";
+import { prisma } from "@/lib/prisma";
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  // Fetch active/recent quiz sessions to allow public spectators
+  const activeSessions = await prisma.quizSession.findMany({
+    where: {
+      status: { in: ["ACTIVE", "PAUSED", "WAITING", "COMPLETED"] },
+    },
+    include: {
+      quiz: { select: { name: true, mode: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  }).catch(() => []);
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0f0f23]">
       <Header />
@@ -32,7 +48,11 @@ export default function LandingPage() {
             Participate in real-time solo or team quiz battles. Watch live questions, trigger fast buzzers, and check your rank on the live screen instantly.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex justify-center pt-2">
+            <SocketStatusIndicator />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Link
               href="/join"
               className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:bg-indigo-500 hover:shadow-indigo-500/40 hover:scale-[1.02]"
@@ -44,10 +64,83 @@ export default function LandingPage() {
               href="/admin"
               className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-8 py-3.5 text-base font-semibold text-white transition-all hover:bg-white/10 hover:border-white/20"
             >
-              Coordinator Portal
+              Check Live Sessions
             </Link>
           </div>
         </section>
+
+        {/* Live Sessions Section */}
+        {activeSessions.length > 0 && (
+          <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/5 space-y-10">
+            <div className="text-center space-y-3">
+              <h2 className="font-heading text-2xl font-bold text-white sm:text-3xl">
+                Live & Recent Event Matches
+              </h2>
+              <p className="max-w-xl mx-auto text-sm text-gray-400">
+                Spectate active rounds on the auditorium screen or check final standings on the leaderboard.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+              {activeSessions.map((session) => {
+                const isLive = session.status === "ACTIVE" || session.status === "PAUSED";
+                return (
+                  <div
+                    key={session.id}
+                    className={`rounded-2xl border bg-white/5 p-6 backdrop-blur-xl transition-all duration-300 flex flex-col justify-between hover:scale-[1.01] ${
+                      isLive 
+                        ? "border-indigo-500/30 shadow-lg shadow-indigo-500/5 hover:border-indigo-500/50 bg-indigo-950/5" 
+                        : "border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded font-bold">
+                          {session.accessCode}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                          isLive 
+                            ? "bg-emerald-500/10 text-emerald-400 animate-pulse border border-emerald-500/20" 
+                            : session.status === "WAITING"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-white/5 text-gray-400 border border-white/10"
+                        }`}>
+                          {isLive ? "● Live Match" : session.status.toLowerCase()}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="text-base font-bold text-white font-heading truncate">
+                          {session.name}
+                        </h3>
+                        <p className="text-xs text-gray-400 mt-1 truncate">
+                          Quiz: {session.quiz.name} ({session.quiz.mode})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 gap-3 text-center text-xs">
+                      <Link
+                        href={`/screen/${session.id}`}
+                        target="_blank"
+                        className="rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 py-2.5 font-semibold text-white transition-all flex items-center justify-center gap-1 hover:border-white/25"
+                      >
+                        🖥️ Auditorium Screen
+                      </Link>
+                      <Link
+                        href={`/leaderboard/${session.id}`}
+                        target="_blank"
+                        className="rounded-xl bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 py-2.5 font-semibold text-indigo-300 hover:text-white transition-all flex items-center justify-center gap-1"
+                      >
+                        🏆 Leaderboard
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Features list */}
         <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 border-t border-white/5">

@@ -7,15 +7,15 @@ import type { ActionResponse } from "@/types";
 
 export async function submitProjectSubmission(data: {
   registrationId: string;
-  participantName: string;
   email: string;
   projectLink: string;
   eventId: string;
+  participantName?: string;
 }): Promise<ActionResponse> {
   try {
-    const { registrationId, participantName, email, projectLink, eventId } = data;
+    const { registrationId, email, projectLink, eventId } = data;
 
-    if (!registrationId || !participantName || !email || !projectLink || !eventId) {
+    if (!registrationId || !email || !projectLink || !eventId) {
       return { success: false, error: "All fields are required." };
     }
 
@@ -50,11 +50,6 @@ export async function submitProjectSubmission(data: {
     // Check email (case-insensitive)
     if (registration.email.toLowerCase() !== email.toLowerCase()) {
       return { success: false, error: "The provided email address does not match our registration records." };
-    }
-
-    // Check name (case-insensitive)
-    if (registration.participantName.toLowerCase() !== participantName.toLowerCase()) {
-      return { success: false, error: "The participant/leader name does not match our registration records." };
     }
 
     // Upsert submission

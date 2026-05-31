@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getSessions, deleteSession } from "@/actions/session.actions";
 import { getQuizzes } from "@/actions/quiz.actions";
-import { Play, Trash, ExternalLink, Activity, Users, Key } from "lucide-react";
+import { Play, Trash, ExternalLink, Activity, Users, Key, Clock } from "lucide-react";
 import { revalidatePath } from "next/cache";
+import { formatDateTime, formatRelativeTime } from "@/lib/utils";
 
 import { DeleteConfirmForm } from "@/components/shared/delete-confirm-form";
 import { SpawnSessionForm } from "./spawn-session-form";
@@ -112,6 +113,10 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5 text-purple-500/70" />
                         {session._count.participants} players
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] text-gray-500 bg-white/[0.02] px-2 py-0.5 rounded border border-white/5">
+                        <Clock className="h-3 w-3 text-indigo-500/50" />
+                        {formatDateTime(session.createdAt)} ({formatRelativeTime(session.createdAt)})
                       </span>
                     </div>
                   </div>

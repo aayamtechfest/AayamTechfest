@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { formatDateTime, formatRelativeTime } from "@/lib/utils";
 import {
   BookOpen,
   Activity,
@@ -217,7 +217,7 @@ export default async function AdminDashboardPage() {
                       <td className="whitespace-nowrap px-6 py-4">
                         <div>
                           <p className="text-sm text-gray-300">
-                            {formatDate(session.createdAt)}
+                            {formatDateTime(session.createdAt)}
                           </p>
                           <p className="text-xs text-gray-500">
                             {formatRelativeTime(session.createdAt)}

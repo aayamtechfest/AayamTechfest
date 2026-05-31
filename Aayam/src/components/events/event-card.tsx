@@ -24,7 +24,10 @@ export function EventCard({ event }: EventCardProps) {
   const fee = event.registrationFee ? Number(event.registrationFee) : 0;
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1.5 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 hover:bg-white/10 animate-fade-in">
+    <Link
+      href={`/events/${event.slug}`}
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1.5 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 hover:bg-white/10 animate-fade-in"
+    >
       <div>
         {/* Card Banner Image */}
         {event.bannerUrl && (
@@ -120,14 +123,11 @@ export function EventCard({ event }: EventCardProps) {
           </span>
         </div>
 
-        <Link
-          href={`/events/${event.slug}`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200"
-        >
+        <div className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200">
           <span>View Details</span>
           <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-        </Link>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }

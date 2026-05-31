@@ -6,12 +6,14 @@ import { AutoSubmitSelect } from "@/components/shared/auto-submit-select";
 export const dynamic = "force-dynamic";
 
 interface QuestionsPageProps {
-  searchParams: Promise<{ quizId?: string }>;
+  searchParams: Promise<{ quizId?: string; type?: string; roundId?: string }>;
 }
 
 export default async function QuestionsPage({ searchParams }: QuestionsPageProps) {
   const resolvedSearchParams = await searchParams;
-  const quizId = resolvedSearchParams.quizId;
+  const selectedQuizId = resolvedSearchParams.quizId;
+  const selectedType = resolvedSearchParams.type;
+  const selectedRoundId = resolvedSearchParams.roundId;
 
   try {
     // Fetch all quizzes for the filter
@@ -59,12 +61,48 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
       );
     }
 
-    // Fetch questions
+    // Fetch rounds of the selected quiz
+    const rounds = selectedQuizId
+      ? (
+          await prisma.quizTemplateRound.findMany({
+            where: { quizId: selectedQuizId },
+            select: { id: true, title: true },
+            orderBy: { roundNumber: "asc" },
+          })
+        ).map((r) => ({ id: r.id, name: r.title }))
+      : [];
+
+    // Fetch round counts for the summary bar if quizId is selected
+    let roundSummary: { name: string; count: number }[] = [];
+    if (selectedQuizId) {
+      const quizRounds = await prisma.quizTemplateRound.findMany({
+        where: { quizId: selectedQuizId },
+        select: {
+          id: true,
+          title: true,
+          questions: { select: { id: true } },
+        },
+        orderBy: { roundNumber: "asc" },
+      });
+      roundSummary = quizRounds.map((r) => ({
+        name: r.title,
+        count: r.questions.length,
+      }));
+    }
+
+    // Build filter query
+    const where: any = {};
+    if (selectedQuizId) where.quizId = selectedQuizId;
+    if (selectedType) where.type = selectedType;
+    if (selectedRoundId) where.templateRoundId = selectedRoundId;
+
+    // Fetch questions matching filters
     const questions = await prisma.quizQuestion.findMany({
-      where: quizId ? { quizId } : {},
+      where,
       include: {
         quiz: { select: { name: true, mode: true } },
         options: { orderBy: { sortOrder: "asc" } },
+        templateRound: { select: { title: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -81,16 +119,17 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
           </p>
         </div>
 
-        {/* Filter and Overview */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
-          <div className="flex flex-1 items-center gap-3">
-            <BookOpen className="h-5 w-5 text-indigo-400" />
-            <span className="text-sm font-medium text-gray-300">Filter by Quiz:</span>
-            <form method="GET" className="flex-1 max-w-xs">
+        {/* Filter and Overview Form */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+          <form method="GET" className="flex flex-wrap items-center gap-5">
+            {/* Quiz filter */}
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-indigo-400 shrink-0" />
+              <span className="text-xs font-semibold text-gray-300">Quiz:</span>
               <AutoSubmitSelect
                 name="quizId"
-                defaultValue={quizId || ""}
-                className="w-full rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500"
+                defaultValue={selectedQuizId || ""}
+                className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 min-w-[150px]"
               >
                 <option value="">All Quizzes</option>
                 {quizzes.map((q) => (
@@ -99,17 +138,77 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
                   </option>
                 ))}
               </AutoSubmitSelect>
-              {/* Fallback button if JavaScript fails */}
-              <noscript>
-                <button type="submit" className="ml-2 text-xs bg-indigo-600 px-2 py-1 rounded text-white">Filter</button>
-              </noscript>
-            </form>
-          </div>
+            </div>
 
-          <div className="text-xs text-gray-400 font-medium">
-            Showing {questions.length} questions
-          </div>
+            {/* Type filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-300">Type:</span>
+              <AutoSubmitSelect
+                name="type"
+                defaultValue={selectedType || ""}
+                className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 min-w-[120px]"
+              >
+                <option value="">All Types</option>
+                <option value="MCQ">MCQ</option>
+                <option value="TRUE_FALSE">True / False</option>
+                <option value="NUMERIC">Numeric</option>
+                <option value="TEXT">Text</option>
+              </AutoSubmitSelect>
+            </div>
+
+            {/* Round filter */}
+            {selectedQuizId && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-300">Round:</span>
+                <AutoSubmitSelect
+                  name="roundId"
+                  defaultValue={selectedRoundId || ""}
+                  className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 min-w-[120px]"
+                >
+                  <option value="">All Rounds</option>
+                  {rounds.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </AutoSubmitSelect>
+              </div>
+            )}
+
+            {/* Reset Filters Link */}
+            {(selectedQuizId || selectedType || selectedRoundId) && (
+              <Link
+                href="/admin/questions"
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors border-b border-indigo-400/20 hover:border-indigo-300/40 pb-0.5"
+              >
+                Clear Filters
+              </Link>
+            )}
+
+            {/* Total Count */}
+            <div className="ml-auto text-xs text-gray-400 font-medium">
+              Showing {questions.length} questions
+            </div>
+          </form>
         </div>
+
+        {/* Round Summary Bar */}
+        {roundSummary.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-indigo-500/10 bg-indigo-500/5 p-4 text-xs animate-fade-in">
+            <span className="font-bold text-indigo-400 uppercase tracking-wider block">Round Summary:</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {roundSummary.map((item, index) => (
+                <div key={index} className="flex items-center gap-1.5 text-gray-300">
+                  <span className="font-semibold text-white">{item.name}:</span>
+                  <span className="rounded-full bg-white/5 border border-white/5 px-2 py-0.5 font-mono text-[10px] text-indigo-300">
+                    {item.count} qs
+                  </span>
+                  {index < roundSummary.length - 1 && <span className="text-gray-600 pl-2">|</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Questions list */}
         {questions.length === 0 ? (
@@ -117,13 +216,13 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
             <HelpCircle className="mb-4 h-12 w-12 text-gray-600" />
             <h2 className="text-lg font-semibold text-white">No questions found</h2>
             <p className="mt-2 text-sm text-gray-400 max-w-sm">
-              {quizId
-                ? "This quiz does not have any questions yet. Navigate to the quiz manager to populate it."
-                : "No questions exist in the database. Open a Quiz and populate questions from the editor."}
+              {selectedQuizId
+                ? "This quiz does not have any questions matching the filters. Navigate to the quiz manager to populate it."
+                : "No questions exist matching the filters. Open a Quiz and populate questions from the editor."}
             </p>
-            {quizId && (
+            {selectedQuizId && (
               <Link
-                href={`/admin/quizzes/${quizId}`}
+                href={`/admin/quizzes/${selectedQuizId}`}
                 className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 shadow-md shadow-indigo-500/10"
               >
                 Go to Quiz Editor
@@ -147,6 +246,11 @@ export default async function QuestionsPage({ searchParams }: QuestionsPageProps
                       <span className="rounded bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
                         {q.type}
                       </span>
+                      {q.templateRound && (
+                        <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-400 uppercase tracking-wider">
+                          {q.templateRound.title}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-400 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded">
                         <BookOpen className="h-3 w-3 text-indigo-400" />
                         {q.quiz.name} ({q.quiz.mode})

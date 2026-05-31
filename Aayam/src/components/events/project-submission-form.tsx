@@ -15,7 +15,6 @@ export function ProjectSubmissionForm({ eventId }: ProjectSubmissionFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [registrationId, setRegistrationId] = useState("");
-  const [participantName, setParticipantName] = useState("");
   const [email, setEmail] = useState("");
   const [projectLink, setProjectLink] = useState("");
 
@@ -23,7 +22,7 @@ export function ProjectSubmissionForm({ eventId }: ProjectSubmissionFormProps) {
     e.preventDefault();
     setError(null);
 
-    if (!registrationId || !participantName || !email || !projectLink) {
+    if (!registrationId || !email || !projectLink) {
       toast.error("Please fill in all the fields.");
       return;
     }
@@ -37,7 +36,6 @@ export function ProjectSubmissionForm({ eventId }: ProjectSubmissionFormProps) {
       const res = await submitProjectSubmission({
         eventId,
         registrationId: registrationId.trim().toUpperCase(),
-        participantName: participantName.trim(),
         email: email.trim(),
         projectLink: projectLink.trim(),
       });
@@ -113,21 +111,6 @@ export function ProjectSubmissionForm({ eventId }: ProjectSubmissionFormProps) {
           />
         </div>
 
-        {/* Participant / Leader Name */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Leader Name / Participant Name</label>
-          <input
-            type="text"
-            required
-            value={participantName}
-            onChange={(e) => setParticipantName(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#16213e] px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="Name used during registration"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
         {/* Email Address */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Email Address</label>
@@ -142,7 +125,7 @@ export function ProjectSubmissionForm({ eventId }: ProjectSubmissionFormProps) {
         </div>
 
         {/* Project Link */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Project Submission URL</label>
           <input
             type="url"

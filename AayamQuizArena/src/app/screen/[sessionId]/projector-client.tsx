@@ -133,7 +133,7 @@ export function ProjectorScreenClient({ session }: ProjectorScreenClientProps) {
       <header className="flex items-center justify-between border-b border-white/10 pb-4 mb-6 relative z-10">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 overflow-hidden rounded-full border border-white/10 bg-black/40">
-            <img src="/Logo.png" alt="AAYAM Logo" className="h-full w-full object-contain" />
+            <img src="/LogoGIF.gif" alt="AAYAM Logo" className="h-full w-full object-contain" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-wider font-heading leading-none">

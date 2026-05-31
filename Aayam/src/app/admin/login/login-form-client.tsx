@@ -45,7 +45,7 @@ export function AdminLoginFormClient() {
           <Link href="/" className="group block mb-4">
             <div className="h-15 w-15 overflow-hidden rounded-full border border-white/10 transition-all duration-200 group-hover:border-indigo-400">
               <img
-                src="/Logo.png"
+                src="/LogoGIF.gif"
                 alt="AAYAM Logo"
                 className="h-full w-full object-cover rounded-full"
               />

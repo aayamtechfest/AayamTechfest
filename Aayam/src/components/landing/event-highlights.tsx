@@ -10,6 +10,7 @@ interface HighlightEvent {
   participationType: "SOLO" | "TEAM" | "BOTH";
   registrationFee: any; // Decimal type from Prisma
   isRegistrationOpen: boolean;
+  bannerUrl?: string | null;
 }
 
 interface EventHighlightsProps {
@@ -42,12 +43,24 @@ export function EventHighlights({ events }: EventHighlightsProps) {
             {events.map((event, index) => {
               const fee = event.registrationFee ? Number(event.registrationFee) : 0;
               return (
-                <div
+                <Link
                   key={event.id}
+                  href={`/events/${event.slug}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                   className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1.5 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/10 hover:bg-white/10 animate-fade-in"
                 >
                   <div>
+                    {/* Card Banner Image */}
+                    {event.bannerUrl && (
+                      <div className="h-36 w-full overflow-hidden rounded-xl mb-4 border border-white/5 bg-black/40">
+                        <img
+                          src={event.bannerUrl}
+                          alt={event.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                    )}
+
                     {/* Badge Header */}
                     <div className="flex items-center justify-between">
                       <span
@@ -104,15 +117,12 @@ export function EventHighlights({ events }: EventHighlightsProps) {
                       </span>
                     </div>
 
-                    <Link
-                      href={`/events/${event.slug}`}
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200"
-                    >
+                    <div className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200">
                       <span>View Details</span>
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </Link>
+                    </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

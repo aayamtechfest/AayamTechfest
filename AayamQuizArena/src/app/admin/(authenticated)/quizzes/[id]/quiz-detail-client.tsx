@@ -73,6 +73,9 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string>("ALL");
+  const [filterRoundId, setFilterRoundId] = useState<string>("ALL");
+  const [collapsedRounds, setCollapsedRounds] = useState<Record<string, boolean>>({});
 
   // Rounds tab states
   const [showRoundForm, setShowRoundForm] = useState(false);
@@ -963,131 +966,272 @@ export function QuizDetailClient({ quiz, events }: QuizDetailClientProps) {
             </div>
           )}
 
-          {/* Questions list */}
-          <div className="space-y-3">
-            {quiz.questions.map((q: any, idx: number) => {
-              const isExpanded = expandedQuestionId === q.id;
-              const belongsToRound = quiz.templateRounds?.find((r: any) => r.id === q.templateRoundId);
+          {/* Client-side Filtering Controls */}
+          {(() => {
+            const filteredQuestions = quiz.questions.filter((q: any) => {
+              const matchesType = filterType === "ALL" || q.type === filterType;
+              const matchesRound = filterRoundId === "ALL" 
+                || (filterRoundId === "UNASSIGNED" ? !q.templateRoundId : q.templateRoundId === filterRoundId);
+              return matchesType && matchesRound;
+            });
 
-              return (
-                <div
-                  key={q.id}
-                  className="rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-all duration-200 hover:border-indigo-500/20"
-                >
-                  {/* Collapsed Header */}
-                  <div
-                    onClick={() => toggleExpandQuestion(q.id)}
-                    className="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-white/[0.02]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-wrap">
-                      <span className="font-mono text-xs text-gray-500 bg-white/5 border border-white/5 px-2 py-0.5 rounded">
-                        Q{idx + 1}
-                      </span>
-                      <p className="text-sm font-semibold text-white truncate max-w-[250px] sm:max-w-lg">
-                        {q.text}
-                      </p>
-                      <div className="flex gap-1.5">
-                        <span className="rounded bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
-                          {q.type}
-                        </span>
-                        {belongsToRound && (
-                          <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
-                            R{belongsToRound.roundNumber}: {belongsToRound.title}
-                          </span>
-                        )}
-                      </div>
+            const roundSummary = (quiz.templateRounds || []).map((r: any) => {
+              const count = quiz.questions.filter((q: any) => q.templateRoundId === r.id).length;
+              return { name: r.title, count };
+            });
+            const unassignedCount = quiz.questions.filter((q: any) => !q.templateRoundId).length;
+
+            return (
+              <div className="space-y-4">
+                {/* Filters Bar */}
+                <div className="flex flex-wrap gap-4 items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl animate-fade-in">
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 font-semibold uppercase tracking-wider">Type:</span>
+                      <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-white outline-none focus:border-indigo-500"
+                      >
+                        <option value="ALL">All Types</option>
+                        <option value="MCQ">MCQ</option>
+                        <option value="TRUE_FALSE">True / False</option>
+                        <option value="NUMERIC">Numeric</option>
+                        <option value="TEXT">Text</option>
+                      </select>
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                      <div className="hidden sm:flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{q.timeLimit || 30}s</span>
-                      </div>
-                      <div className="hidden sm:flex items-center gap-1">
-                        <Award className="h-3.5 w-3.5" />
-                        <span>{q.points || 10} pts</span>
-                      </div>
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 font-semibold uppercase tracking-wider">Round:</span>
+                      <select
+                        value={filterRoundId}
+                        onChange={(e) => setFilterRoundId(e.target.value)}
+                        className="rounded-lg border border-white/10 bg-[#1a1a2e] px-2.5 py-1.5 text-white outline-none focus:border-indigo-500"
+                      >
+                        <option value="ALL">All Rounds</option>
+                        <option value="UNASSIGNED">Unassigned / General</option>
+                        {quiz.templateRounds?.map((r: any) => (
+                          <option key={r.id} value={r.id}>
+                            Round {r.roundNumber}: {r.title}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    {(filterType !== "ALL" || filterRoundId !== "ALL") && (
+                      <button
+                        onClick={() => {
+                          setFilterType("ALL");
+                          setFilterRoundId("ALL");
+                        }}
+                        className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-4"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
                   </div>
 
-                  {/* Expanded choices */}
-                  {isExpanded && (
-                    <div className="border-t border-white/10 bg-black/20 p-5 space-y-4">
-                      {/* Option details */}
-                      {(q.type === "MCQ" || q.type === "TRUE_FALSE") && (
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Options / Choices:</h4>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {q.options.map((opt: any) => (
-                              <div
-                                key={opt.id}
-                                className={`flex items-center justify-between border px-4 py-2.5 rounded-lg text-sm ${
-                                  opt.isCorrect
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                                    : "bg-white/5 border-white/5 text-gray-300"
-                                }`}
-                              >
-                                <span>{opt.text}</span>
-                                {opt.isCorrect && (
-                                  <span className="text-[10px] uppercase font-bold tracking-wider bg-emerald-500/20 px-1.5 py-0.5 rounded">
-                                    Correct
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                  <div className="text-xs text-gray-400 font-medium">
+                    Showing {filteredQuestions.length} of {quiz.questions.length} questions
+                  </div>
+                </div>
 
-                      {/* Explanation */}
-                      {q.explanation && (
-                        <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-                          <h4 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Explanation:</h4>
-                          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{q.explanation}</p>
+                {/* Counts Summary Bar */}
+                {quiz.questions.length > 0 && (
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-xl border border-indigo-500/10 bg-indigo-500/5 p-3 text-xs">
+                    <span className="font-bold text-indigo-400 uppercase tracking-wider">Round Summary:</span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      {roundSummary.map((item: any, index: number) => (
+                        <div key={index} className="flex items-center gap-1 text-gray-300">
+                          <span className="font-semibold">{item.name}:</span>
+                          <span className="rounded bg-white/5 border border-white/5 px-1.5 py-0.5 font-mono text-[10px] text-indigo-300">
+                            {item.count} qs
+                          </span>
                         </div>
-                      )}
-
-                      {/* Question controls */}
-                      {!isArchived && (
-                        <div className="flex gap-2 justify-end border-t border-white/5 pt-3">
-                          <button
-                            onClick={() => handleOpenEditQuestion(q)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/10"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            Edit Question
-                          </button>
-                          <button
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
-                          >
-                            <Trash className="h-3.5 w-3.5" />
-                            Delete
-                          </button>
+                      ))}
+                      {unassignedCount > 0 && (
+                        <div className="flex items-center gap-1 text-gray-300">
+                          <span className="font-semibold">Unassigned:</span>
+                          <span className="rounded bg-white/5 border border-white/5 px-1.5 py-0.5 font-mono text-[10px] text-amber-400">
+                            {unassignedCount} qs
+                          </span>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {quiz.questions.length === 0 && (
-              <div className="flex flex-col items-center justify-center p-8 border border-dashed border-white/10 rounded-xl text-center">
-                <HelpCircle className="h-8 w-8 text-gray-600 mb-2" />
-                <p className="text-sm text-gray-400">This quiz doesn&apos;t have any questions yet.</p>
-                {!isArchived && (
-                  <button
-                    onClick={handleOpenAddQuestion}
-                    className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 mt-1"
-                  >
-                    Click here to add one.
-                  </button>
+                  </div>
                 )}
+
+                {/* Questions Grouped by Round */}
+                <div className="space-y-4">
+                  {(() => {
+                    const groups = [
+                      ...(quiz.templateRounds || []).map((r: any) => ({
+                        id: r.id,
+                        name: `Round ${r.roundNumber}: ${r.title}`,
+                        type: r.type,
+                        questions: filteredQuestions.filter((q: any) => q.templateRoundId === r.id),
+                      })),
+                      {
+                        id: "unassigned",
+                        name: "Unassigned / General Questions",
+                        type: "GENERAL",
+                        questions: filteredQuestions.filter((q: any) => !q.templateRoundId),
+                      }
+                    ].filter(g => g.questions.length > 0);
+
+                    if (groups.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-12 border border-white/10 bg-white/5 rounded-xl text-center">
+                          <HelpCircle className="h-8 w-8 text-gray-600 mb-2" />
+                          <p className="text-sm text-gray-400">No questions match the active filters.</p>
+                        </div>
+                      );
+                    }
+
+                    return groups.map((g) => {
+                      const isCollapsed = collapsedRounds[g.id] || false;
+                      const toggleCollapsed = () => {
+                        setCollapsedRounds(prev => ({
+                          ...prev,
+                          [g.id]: !prev[g.id]
+                        }));
+                      };
+
+                      return (
+                        <div key={g.id} className="space-y-3">
+                          {/* Collapsible Header */}
+                          <div 
+                            onClick={toggleCollapsed}
+                            className="flex items-center justify-between border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-3 rounded-xl cursor-pointer select-none transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`h-1.5 w-1.5 rounded-full ${g.id === "unassigned" ? "bg-amber-400" : "bg-indigo-400"}`} />
+                              <h3 className="text-sm font-bold text-white font-heading">{g.name}</h3>
+                              <span className="rounded-full bg-white/5 border border-white/5 px-2 py-0.5 font-mono text-[10px] text-gray-400">
+                                {g.questions.length} questions
+                              </span>
+                              {g.type !== "GENERAL" && (
+                                <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-400 uppercase tracking-wider">
+                                  {g.type}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-400">
+                              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </div>
+                          </div>
+
+                          {/* Questions in Group */}
+                          {!isCollapsed && (
+                            <div className="space-y-3 pl-2 sm:pl-4 border-l border-white/5">
+                              {g.questions.map((q: any, qIdx: number) => {
+                                const isExpanded = expandedQuestionId === q.id;
+                                
+                                return (
+                                  <div
+                                    key={q.id}
+                                    className="rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-all duration-200 hover:border-indigo-500/20 animate-fade-in"
+                                  >
+                                    {/* Collapsed Header */}
+                                    <div
+                                      onClick={() => toggleExpandQuestion(q.id)}
+                                      className="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-white/[0.02]"
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                                        <span className="font-mono text-xs text-gray-500 bg-white/5 border border-white/5 px-2 py-0.5 rounded">
+                                          Q{qIdx + 1}
+                                        </span>
+                                        <p className="text-sm font-semibold text-white truncate max-w-[250px] sm:max-w-lg">
+                                          {q.text}
+                                        </p>
+                                        <div className="flex gap-1.5">
+                                          <span className="rounded bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
+                                            {q.type}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-4 text-xs text-gray-400">
+                                        <div className="hidden sm:flex items-center gap-1">
+                                          <Clock className="h-3.5 w-3.5" />
+                                          <span>{q.timeLimit || 30}s</span>
+                                        </div>
+                                        <div className="hidden sm:flex items-center gap-1">
+                                          <Award className="h-3.5 w-3.5" />
+                                          <span>{q.points || 10} pts</span>
+                                        </div>
+                                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </div>
+                                    </div>
+
+                                    {/* Expanded details */}
+                                    {isExpanded && (
+                                      <div className="border-t border-white/10 bg-black/20 p-5 space-y-4">
+                                        {(q.type === "MCQ" || q.type === "TRUE_FALSE") && (
+                                          <div className="space-y-2">
+                                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Options / Choices:</h4>
+                                            <div className="grid gap-2 sm:grid-cols-2">
+                                              {q.options.map((opt: any) => (
+                                                <div
+                                                  key={opt.id}
+                                                  className={`flex items-center justify-between border px-4 py-2.5 rounded-lg text-sm ${
+                                                    opt.isCorrect
+                                                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                                      : "bg-white/5 border-white/5 text-gray-300"
+                                                  }`}
+                                                >
+                                                  <span>{opt.text}</span>
+                                                  {opt.isCorrect && (
+                                                    <span className="text-[10px] uppercase font-bold tracking-wider bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                                                      Correct
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {q.explanation && (
+                                          <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                                            <h4 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Explanation:</h4>
+                                            <p className="text-xs text-gray-400 mt-1 leading-relaxed">{q.explanation}</p>
+                                          </div>
+                                        )}
+
+                                        {!isArchived && (
+                                          <div className="flex gap-2 justify-end border-t border-white/5 pt-3">
+                                            <button
+                                              onClick={() => handleOpenEditQuestion(q)}
+                                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/10"
+                                            >
+                                              <Edit className="h-3.5 w-3.5" />
+                                              Edit Question
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteQuestion(q.id)}
+                                              className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
+                                            >
+                                              <Trash className="h-3.5 w-3.5" />
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
 

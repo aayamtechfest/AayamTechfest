@@ -1,6 +1,6 @@
-import { changePasswordAction } from "@/actions/auth.actions";
-import { Settings, Shield, Link, Database, Save } from "lucide-react";
-import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import SocketSettingsForm from "./socket-settings-form";
+import { Shield, Link, Database, Server } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -8,93 +8,30 @@ export default async function AdminSettingsPage() {
   const dbUrl = process.env.DATABASE_URL || "";
   const maskedDbUrl = dbUrl.replace(/:([^@]+)@/, ":******@");
 
-  async function handlePasswordChange(formData: FormData) {
-    "use server";
-    const currentPassword = formData.get("currentPassword") as string;
-    const newPassword = formData.get("newPassword") as string;
-    const confirmPassword = formData.get("confirmPassword") as string;
-
-    if (!currentPassword || !newPassword || !confirmPassword) return;
-
-    if (newPassword !== confirmPassword) {
-      // Typically we'd use toast/feedback but since this is a simple action, we can return error or handle it.
-      // For simplicity, we can log or trigger a direct check.
-      return;
-    }
-
-    await changePasswordAction(currentPassword, newPassword);
-  }
+  // Fetch settings from DB (shared with Aayam main website)
+  const settings = await prisma.settings.findFirst().catch(() => null);
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white md:text-3xl font-heading">
           Platform Settings
         </h1>
         <p className="mt-1 text-gray-400">
-          Configure security, passwords, and audit connection strings.
+          Configure real-time server connections, settings, and view diagnostic addresses.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Change password card */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2 font-heading">
-            <Shield className="h-5 w-5 text-indigo-400" />
-            Security & Passwords
-          </h3>
-          <p className="text-xs text-gray-400">
-            Modify credentials to access the shared administration panel.
-          </p>
-
-          <form action={handlePasswordChange} className="space-y-4 pt-2">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Current Password</label>
-              <input
-                type="password"
-                name="currentPassword"
-                required
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">New Password</label>
-              <input
-                type="password"
-                name="newPassword"
-                required
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Confirm New Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                required
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500"
-            >
-              <Save className="h-4 w-4" />
-              Save Password
-            </button>
-          </form>
-        </div>
+        {/* Dynamic Socket Server Config (Replaces Password Form) */}
+        <SocketSettingsForm initialSocketUrl={settings?.socketUrl || ""} />
 
         {/* Connection strings & diagnosis */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4 h-fit">
           <h3 className="text-lg font-bold text-white flex items-center gap-2 font-heading">
             <Link className="h-5 w-5 text-indigo-400" />
-            Platform Integration
+            Platform Integration & Diagnostics
           </h3>
           <p className="text-xs text-gray-400">
             System diagnostics and connection addresses.
@@ -117,12 +54,32 @@ export default async function AdminSettingsPage() {
             </div>
 
             <div>
-              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold block">Socket.io Server URL</span>
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold block">Build Environment Socket URL</span>
               <div className="bg-black/25 border border-white/5 p-2 rounded-lg text-xs font-mono text-purple-300 mt-1">
                 {process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001"}
               </div>
             </div>
+
+            {settings?.socketUrl && (
+              <div>
+                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-semibold block">Runtime Override Socket URL</span>
+                <div className="bg-emerald-950/20 border border-emerald-500/20 p-2 rounded-lg text-xs font-mono text-emerald-300 mt-1">
+                  {settings.socketUrl}
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+
+      {/* Password warning/note section */}
+      <div className="rounded-2xl border border-amber-500/10 bg-amber-500/5 p-5 backdrop-blur-xl flex gap-3">
+        <Shield className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <h4 className="text-sm font-bold text-white font-heading">Security & Credentials Note</h4>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Admin credentials and password modifications can only be managed from the main Aayam website admin panel. This ensures single-sign-on (SSO) credentials remain strictly unified across the entire techfest platform.
+          </p>
         </div>
       </div>
     </div>

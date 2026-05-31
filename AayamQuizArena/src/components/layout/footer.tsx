@@ -47,7 +47,7 @@ const quickLinks = [
 
 export async function Footer() {
   const settings = await getSettings();
-  const footerLogo = settings?.footerLogoUrl || "/Logo.png";
+  const footerLogo = settings?.footerLogoUrl || "/LogoGIF.gif";
   const footerText = settings?.footerText || `© ${new Date().getFullYear()} AAYAM. All rights reserved. Built with ❤️ for live competitions.`;
   const contactEmail = settings?.contactEmail || "contact@aayam.tech";
   const contactPhone = settings?.contactPhone || "+91 98765 43210";

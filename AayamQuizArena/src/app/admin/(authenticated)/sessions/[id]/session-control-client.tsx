@@ -30,6 +30,8 @@ import {
   Zap,
   ChevronRight,
   Clock,
+  Trophy,
+  Award,
 } from "lucide-react";
 import { RealtimeQuizState } from "@/types";
 
@@ -253,6 +255,11 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
   const handleStartRapidFireTimer = () => {
     getSocket().emit("admin:start-rapid-fire-timer", { sessionId: session.id });
     toast.success(`${rfTotalTime}s Rapid Fire timer started!`);
+  };
+
+  const handleStopRapidFire = () => {
+    getSocket().emit("admin:stop-rapid-fire", { sessionId: session.id });
+    toast.success("Rapid Fire round stopped.");
   };
 
   const handleEvaluateRapidFire = (questionId: string, status: "CORRECT" | "WRONG" | "SKIP") => {
@@ -547,8 +554,95 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
 
         {/* Mid: Active Round Controller */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* Main Active Question & Scoring controls */}
+          {(quizState?.status === "COMPLETED" || session.status === "COMPLETED") ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-6 animate-fade-in">
+              <div className="border-b border-white/10 pb-4">
+                <h2 className="text-xl font-bold text-white font-heading flex items-center gap-2">
+                  <Trophy className="h-6 w-6 text-amber-400 animate-bounce" />
+                  Final Competition Standings
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  This live quiz competition has completed. Here are the standings retrieved from the database.
+                </p>
+              </div>
+
+              {session.quiz.mode === "TEAM" ? (
+                <div className="space-y-2.5">
+                  {session.teams.map((t: any, idx: number) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between p-3.5 border border-white/5 bg-black/20 rounded-xl hover:border-indigo-500/20 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${
+                          idx === 0 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 font-heading" :
+                          idx === 1 ? "bg-slate-400/20 text-slate-300 border border-slate-400/30 font-heading" :
+                          idx === 2 ? "bg-amber-700/20 text-amber-600 border border-amber-700/30 font-heading" :
+                          "bg-white/5 text-gray-500"
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-bold text-white text-sm">{t.name}</p>
+                          {t.participants && t.participants.length > 0 && (
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                              Members: {t.participants.map((p: any) => p.displayName).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="font-mono text-sm font-bold text-indigo-400">
+                        {t.totalScore} pt
+                      </span>
+                    </div>
+                  ))}
+                  {session.teams.length === 0 && (
+                    <div className="text-center py-8 text-xs text-gray-500 border border-dashed border-white/5 rounded-xl">
+                      No team standings found.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {session.participants.map((p: any, idx: number) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between p-3.5 border border-white/5 bg-black/20 rounded-xl hover:border-indigo-500/20 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${
+                          idx === 0 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 font-heading" :
+                          idx === 1 ? "bg-slate-400/20 text-slate-300 border border-slate-400/30 font-heading" :
+                          idx === 2 ? "bg-amber-700/20 text-amber-600 border border-amber-700/30 font-heading" :
+                          "bg-white/5 text-gray-500"
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-bold text-white text-sm">
+                            {p.displayName || p.registration?.participantName}
+                          </p>
+                          <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                            ID: {p.registrationNumber || p.registration?.registrationId || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="font-mono text-sm font-bold text-indigo-400">
+                        {p.totalScore} pt
+                      </span>
+                    </div>
+                  ))}
+                  {session.participants.length === 0 && (
+                    <div className="text-center py-8 text-xs text-gray-500 border border-dashed border-white/5 rounded-xl">
+                      No contestant standings found.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Main Active Question & Scoring controls */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl space-y-4">
             <h2 className="text-lg font-bold text-white font-heading flex items-center gap-2">
               <Activity className="h-5 w-5 text-indigo-400" />
@@ -876,6 +970,16 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
                         <span className="text-sm font-bold text-indigo-400">{quizState.rapidFireState.stats?.score || 0}</span>
                       </div>
                     </div>
+
+                    {quizState.rapidFireState?.isRunning && (
+                      <button
+                        type="button"
+                        onClick={handleStopRapidFire}
+                        className="w-full mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-red-600/20 border border-red-500/30 hover:bg-red-600 hover:text-white px-3 py-2 text-xs font-semibold text-red-400 hover:shadow-lg transition-all duration-200"
+                      >
+                        ⏹ Finish Rapid Fire Turn
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1063,6 +1167,7 @@ export function SessionControlClient({ session }: SessionControlClientProps) {
               )}
             </div>
           )}
+          </>)}
         </div>
 
         {/* Sidebar Right: contestants scoreboard */}

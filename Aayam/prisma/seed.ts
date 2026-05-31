@@ -199,6 +199,36 @@ async function main() {
     console.log("✅ Email templates created");
   }
 
+  // ─── 5. Seed About Cards ───
+  const aboutCardCount = await prisma.aboutCard.count();
+  if (aboutCardCount > 0) {
+    console.log(`✅ About cards already exist (${aboutCardCount} found)`);
+  } else {
+    await prisma.aboutCard.createMany({
+      data: [
+        {
+          iconName: "Target",
+          title: "Our Mission",
+          description: "To foster technical innovation, creative thinking, and competitive spirit among students through hands-on challenges and live events.",
+          sortOrder: 1,
+        },
+        {
+          iconName: "Compass",
+          title: "Our Vision",
+          description: "To build a vibrant and collaborative tech community where learning meets excitement and technical skills translate to real-world achievements.",
+          sortOrder: 2,
+        },
+        {
+          iconName: "Award",
+          title: "Core Values",
+          description: "Technical excellence, fair competition, student empowerment, and building real-time event technologies that push the boundaries of fun.",
+          sortOrder: 3,
+        },
+      ],
+    });
+    console.log("✅ Default about cards seeded");
+  }
+
   console.log("\n🎉 Seed completed successfully!");
 }
 

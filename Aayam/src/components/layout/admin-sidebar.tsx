@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Send,
   Flame,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ const navItems = [
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
   { label: "Messages", href: "/admin/messages", icon: Mail },
   { label: "Broadcast Email", href: "/admin/broadcast", icon: Send },
+  { label: "About Cards", href: "/admin/about", icon: Info },
   { label: "Settings", href: "/admin/settings", icon: Settings },
   { label: "Quiz Arena", href: "/admin/sso-redirect", icon: Flame },
   { label: "Export", href: "/admin/export", icon: Download },
@@ -57,7 +59,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <Link href="/admin" className="flex items-center gap-2 group">
           <div className="h-10 w-10 overflow-hidden rounded-xl border border-white/20 transition-all duration-200 group-hover:border-indigo-400">
             <img
-              src="/Logo.png"
+              src="/LogoGIF.gif"
               alt="AAYAM Logo"
               className="h-full w-full object-cover rounded-xl"
             />
@@ -126,7 +128,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <div className="mb-3 flex items-center gap-3">
           <div className="h-9 w-9 overflow-hidden rounded-full border border-white/20">
             <img
-              src="/Logo.png"
+              src="/LogoGIF.gif"
               alt="Admin Profile"
               className="h-full w-full object-cover rounded-full"
             />
