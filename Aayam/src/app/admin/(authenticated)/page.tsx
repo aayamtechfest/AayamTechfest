@@ -10,6 +10,11 @@ import {
   TrendingUp,
   Eye,
   Download,
+  Server,
+  Terminal,
+  Key,
+  Database,
+  RefreshCw,
 } from "lucide-react";
 
 async function getDashboardData() {
@@ -339,6 +344,118 @@ export default async function AdminDashboardPage() {
               <p className="text-xs text-gray-500">Download as CSV/Excel</p>
             </div>
           </Link>
+        </div>
+      </div>
+
+      {/* Local Server Setup Instructions for Admins */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="flex items-center gap-3 border-b border-white/10 pb-4 mb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10">
+            <Server className="h-5 w-5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Local Server Run Guide</h2>
+            <p className="text-xs text-gray-400">Step-by-step instructions for running this server locally</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Terminal className="h-4 w-4 text-indigo-400" />
+                1. Initial Setup (After Cloning)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-2">
+              <p>After cloning or copying the repository, install all necessary dependencies locally.</p>
+              <div className="bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-xs text-indigo-300">
+                npm install
+              </div>
+              <p className="text-xs text-gray-500">Note: Ensure you are using Node.js version 18.x or later.</p>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Key className="h-4 w-4 text-indigo-400" />
+                2. Environment Variables (.env)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>Copy the template <code className="text-white font-mono bg-white/5 px-1 py-0.5 rounded text-xs">.env.example</code> to a new file named <code className="text-white font-mono bg-white/5 px-1 py-0.5 rounded text-xs">.env</code> in the project root directory and set the values:</p>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">DATABASE_URL</span> &amp; <span className="font-semibold text-gray-300 font-mono">DIRECT_URL</span>
+                  <p className="text-gray-500">PostgreSQL database connection strings (see Database guide below).</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">SESSION_SECRET</span>
+                  <p className="text-gray-500">Set a unique 32-character string for administrative session security.</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">NEXT_PUBLIC_SITE_URL</span>
+                  <p className="text-gray-500">Set this to <code className="font-mono bg-white/5 px-1 py-0.5 rounded text-[10px]">http://localhost:3000</code> for local testing.</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">NEXT_PUBLIC_QUIZ_ARENA_URL</span>
+                  <p className="text-gray-500">Set this to <code className="font-mono bg-white/5 px-1 py-0.5 rounded text-[10px]">http://localhost:3002</code> if running the Quiz Arena locally.</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">Cloudinary &amp; SMTP Configuration</span>
+                  <p className="text-gray-500">Required if testing image uploads (receipts/banners) and email notifications locally.</p>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Database className="h-4 w-4 text-indigo-400" />
+                3. Database Config (Supabase vs Local PG)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>You can run this application using a <span className="text-white font-medium">local PostgreSQL instance</span> (e.g., Docker, Postgres.app) or a <span className="text-white font-medium">Supabase database</span>.</p>
+              <div className="border border-amber-500/20 bg-amber-500/5 rounded-lg p-3 text-xs text-amber-300 space-y-1">
+                <p className="font-semibold">⚠️ What if you use a different or local database?</p>
+                <p>If you connect to a new database (local or a different Supabase project) by changing <code className="text-amber-200 font-mono">DATABASE_URL</code> in your env:</p>
+                <ol className="list-decimal pl-4 mt-1 space-y-1">
+                  <li>You must run database migrations to create the required tables.</li>
+                  <li>You must run the seed script to populate default admin credentials and template configs.</li>
+                </ol>
+              </div>
+              <p>Apply the database schema and seed data with the following commands:</p>
+              <div className="bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-xs text-indigo-300 space-y-1">
+                <div>npx prisma db push</div>
+                <div className="text-gray-500"># Next, seed default admin data:</div>
+                <div>npm run seed</div>
+              </div>
+              <p className="text-xs text-emerald-400 font-medium">✓ Default admin seed credentials: <code className="font-mono text-white bg-white/5 px-1 py-0.5 rounded">admin@aayam.tech</code> / <code className="font-mono text-white bg-white/5 px-1 py-0.5 rounded">your-strong-admin-password</code></p>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <RefreshCw className="h-4 w-4 text-indigo-400" />
+                4. Starting the Server
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-2">
+              <p>Once dependencies, env variables, and database migrations are completed, start the local development server:</p>
+              <div className="bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-xs text-indigo-300">
+                npm run dev
+              </div>
+              <p>The application will start on <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">http://localhost:3000</a>.</p>
+            </div>
+          </details>
         </div>
       </div>
     </div>

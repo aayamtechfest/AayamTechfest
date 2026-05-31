@@ -13,6 +13,11 @@ import {
   ArrowRight,
   TrendingUp,
   Award,
+  Server,
+  Terminal,
+  Key,
+  Database,
+  RefreshCw,
 } from "lucide-react";
 
 async function getDashboardData() {
@@ -335,6 +340,130 @@ export default async function AdminDashboardPage() {
               <p className="text-xs text-gray-500">Configure global timers</p>
             </div>
           </Link>
+        </div>
+      </div>
+
+      {/* Local Server Setup Instructions for Admins */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="flex items-center gap-3 border-b border-white/10 pb-4 mb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10">
+            <Server className="h-5 w-5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Local Server Run Guide</h2>
+            <p className="text-xs text-gray-400">Step-by-step instructions for running the Quiz Arena locally</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Terminal className="h-4 w-4 text-indigo-400" />
+                1. Initial Setup (After Cloning)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>Install project dependencies for both the frontend client and the real-time WebSocket socket-server:</p>
+              <div>
+                <p className="font-semibold text-white text-xs mb-1">A. Install main Quiz Arena dependencies:</p>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-2.5 font-mono text-xs text-indigo-300">
+                  npm install
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-white text-xs mb-1">B. Install real-time socket-server dependencies:</p>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-2.5 font-mono text-xs text-indigo-300">
+                  cd socket-server && npm install
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">Note: Ensure you are using Node.js version 18.x or later.</p>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Key className="h-4 w-4 text-indigo-400" />
+                2. Environment Variables (.env)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>Copy the template <code className="text-white font-mono bg-white/5 px-1 py-0.5 rounded text-xs">.env.example</code> to a new file named <code className="text-white font-mono bg-white/5 px-1 py-0.5 rounded text-xs">.env</code> in the project root directory and set the values:</p>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">DATABASE_URL</span> &amp; <span className="font-semibold text-gray-300 font-mono">DIRECT_URL</span>
+                  <p className="text-gray-500">PostgreSQL database connection strings (see Database guide below).</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">SESSION_SECRET</span>
+                  <p className="text-gray-500">Set a unique 32-character string for administration session security.</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">NEXT_PUBLIC_SOCKET_URL</span>
+                  <p className="text-gray-500">WebSocket URL pointing to local server: <code className="font-mono bg-white/5 px-1 py-0.5 rounded text-[10px]">http://localhost:3001</code></p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">NEXT_PUBLIC_SITE_URL</span>
+                  <p className="text-gray-500">Frontend server URL: <code className="font-mono bg-white/5 px-1 py-0.5 rounded text-[10px]">http://localhost:3002</code></p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-300 font-mono">NEXT_PUBLIC_AAYAM_URL</span>
+                  <p className="text-gray-500">Point back to main Aayam portal for integration: <code className="font-mono bg-white/5 px-1 py-0.5 rounded text-[10px]">http://localhost:3000</code></p>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <Database className="h-4 w-4 text-indigo-400" />
+                3. Database Config (Supabase vs Local PG)
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>You can use a <span className="text-white font-medium">local PostgreSQL instance</span> (e.g., Docker, Postgres.app) or a <span className="text-white font-medium">Supabase database</span>.</p>
+              <div className="border border-amber-500/20 bg-amber-500/5 rounded-lg p-3 text-xs text-amber-300 space-y-1">
+                <p className="font-semibold">⚠️ What if you use a different or local database?</p>
+                <p>If you connect to a new database (local or a different Supabase project) by changing <code className="text-amber-200 font-mono">DATABASE_URL</code> in your env:</p>
+                <p>You must run database migrations to create the required tables and structures before starting the server.</p>
+              </div>
+              <p>Apply migrations using the following command:</p>
+              <div className="bg-black/40 border border-white/5 rounded-lg p-3 font-mono text-xs text-indigo-300">
+                npx prisma db push
+              </div>
+            </div>
+          </details>
+
+          <details className="group border border-white/5 bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200 open:border-indigo-500/30 open:bg-indigo-500/[0.02]" name="setup-guide">
+            <summary className="flex items-center justify-between cursor-pointer p-4 select-none">
+              <span className="flex items-center gap-3 text-sm font-medium text-white group-hover:text-indigo-400 transition-colors">
+                <RefreshCw className="h-4 w-4 text-indigo-400" />
+                4. Running the Servers
+              </span>
+              <span className="text-gray-400 transition-transform duration-200 group-open:rotate-180">↓</span>
+            </summary>
+            <div className="p-4 pt-0 text-sm text-gray-400 border-t border-white/5 bg-black/10 leading-relaxed space-y-3">
+              <p>Running the Quiz Arena locally requires running **both** the WebSocket server and the Next.js client.</p>
+              <div>
+                <p className="font-semibold text-white text-xs mb-1">A. Start the Socket.IO server (Port 3001):</p>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-2.5 font-mono text-xs text-indigo-300">
+                  cd socket-server && npm start
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-white text-xs mb-1">B. Start the Next.js Client (Port 3002):</p>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-2.5 font-mono text-xs text-indigo-300">
+                  npm run dev
+                </div>
+              </div>
+              <p>Verify that both servers are online. The Next.js frontend is accessible at <a href="http://localhost:3002" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">http://localhost:3002</a>.</p>
+            </div>
+          </details>
         </div>
       </div>
     </div>
